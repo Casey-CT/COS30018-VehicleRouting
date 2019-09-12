@@ -34,11 +34,6 @@ public class App {
         Boot.main(param);
     }
 
-//    protected void helloSetup(Agent a) {
-//
-//    }
-
-
     public static void main(String[] args) {
         JFrame frame = new JFrame("App");
         HelloWorldAgent ha = new HelloWorldAgent();
