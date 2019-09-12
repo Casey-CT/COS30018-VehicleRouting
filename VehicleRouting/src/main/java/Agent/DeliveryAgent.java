@@ -13,7 +13,8 @@ import java.util.*;
 
 public class DeliveryAgent extends Agent {
     private int capacity = 0;
-
+	private int currentLocation = 0;
+	
     public int getCapacity() {
         return capacity;
     }
@@ -33,20 +34,23 @@ public class DeliveryAgent extends Agent {
 
     protected void takeDown() {
         // Printout a dismissal message
-        System.out.println("Delivery-agent " + getAID().getName() + " terminating.");
+        System.out.println("Delivery agent " + getAID().getName() + " terminating.");
     }
 
     private class ListenForMessages extends CyclicBehaviour {
         public void action() {
-            //MessageTemplate mt = MessageTemplate.MatchPerformative(ACLMessage.CFP);
+            //MessageTemplate mt = MessageTemplate.MatchPerformative(ACLMessage.INFORM);
             //Create a message template for our purposes
+				
+			//check if message performative is REQUEST and content is "KILL"
+			//kill the DA 
+			//run agent ShutdownAgent behaviour
+			//myAgent.takeDown();
 
             ACLMessage msg = myAgent.receive();       //pass mt to receive()
 
             if (msg != null) {
                 //Message received. Process it.
-
-
                 //MessageReader mr = new MessageReader();
                 //Items[] = mr.Read(msg.getContent());            //assuming we have an Items class
 
@@ -67,14 +71,29 @@ public class DeliveryAgent extends Agent {
             }
         }
     }
-
-
-
-
-
-
-
-
+	
+	private class LoadInventory extends OneShotBehaviour {
+		public void action() {
+			//update the agent's inventory with the new inventory
+		}	
+	}
+	
+	private class StartDelivery extends OneShotBehaviour {
+		public void action() {
+			
+		}
+	}
+	
+	private class Move extends CyclicBehaviour {
+		public void action() {
+			
+		}
+	}
+	
+	
+	
+	
+	
 }
 
 
