@@ -1,5 +1,6 @@
 package Agent;
 
+import Item.Inventory;
 import jade.core.Agent;
 import jade.core.behaviours.*;
 import jade.lang.acl.ACLMessage;
@@ -14,9 +15,14 @@ import java.util.*;
 public class DeliveryAgent extends Agent {
     private int capacity = 0;
 	private int currentLocation = 0;
+	private Inventory inventory;
 	
     public int getCapacity() {
         return capacity;
+    }
+
+    public int getCurrentLocation() {
+        return currentLocation;
     }
 
     protected void setup() {
@@ -31,6 +37,12 @@ public class DeliveryAgent extends Agent {
             doDelete();
         }
     }
+
+    //Used to restart the agent if paused
+    protected void start() {}
+
+    //Used to pause the agent and all it's behaviours
+    protected void pause() {}
 
     protected void takeDown() {
         // Printout a dismissal message
@@ -71,6 +83,8 @@ public class DeliveryAgent extends Agent {
             }
         }
 
+    //This could probably just be a function, rather than a behaviour
+    //This should compare the given inventory against this Delivery Agents Capacity and Size Limits
     private class LoadInventory extends OneShotBehaviour {
         public void action() {
             //update the agent's inventory with the new inventory

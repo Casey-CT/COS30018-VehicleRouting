@@ -2,6 +2,8 @@ package Item;
 
 import com.google.gson.Gson;
 
+//TODO: Probably fix an edge case where deserialize potentially creates a weird object if json represenation is invalid
+
 public class Item {
     //Fields
     //int id - Unique ID for this particlar item
@@ -37,6 +39,12 @@ public class Item {
         Gson gson = new Gson();
         Item i = gson.fromJson(JSON, Item.class);
         return i;
+    }
+
+    //Returns Item fields in an easily readable format
+    @Override
+    public String toString() {
+        return "Item " + id + ": " + name + ", Going To: " + destination + ". Weight: " + weight + ", Size: " + size;
     }
 
     //Field Getters
