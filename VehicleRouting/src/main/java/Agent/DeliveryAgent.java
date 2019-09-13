@@ -70,30 +70,45 @@ public class DeliveryAgent extends Agent {
                 }
             }
         }
+
+    private class LoadInventory extends OneShotBehaviour {
+        public void action() {
+            //update the agent's inventory with the new inventory
+        }
     }
-	
-	private class LoadInventory extends OneShotBehaviour {
-		public void action() {
-			//update the agent's inventory with the new inventory
-		}	
-	}
-	
-	private class StartDelivery extends OneShotBehaviour {
-		public void action() {
-			
-		}
-	}
-	
-	private class Move extends CyclicBehaviour {
-		public void action() {
-			
-		}
-	}
-	
-	
-	
-	
-	
+
+    //Called By The Travel Behaviour
+    //-Looks at Current Location
+    //-Checks Through Item Inventory
+    //-If Any Packages Match
+    //  -Message Master Agent
+    //  -Block();
+    //  -Wait For Response
+    //  -On Confirmation Response
+    //  -Remove Item From Inventory
+    //-After Inventory Has Been Iterated Through
+    //  -Check if end of path has been reached
+    //      -If yes, message master agent
+    //      -Otherwise, add new travel behaviour
+    private class onArrival extends OneShotBehaviour {
+        public void action() {
+
+        }
+    }
+
+    //Called By Delivery Agent When Told To Start
+    //Called By onArrival to move to next location
+    //-Gets Next Location
+    //-Gets Next Distance
+    //-Checks if path has ended
+    //-Starts a new Wakeup behaviour, using the distance as a time
+    //  -On Wakeup, Overwrites new location
+    //  -then adds a new arrive behaviour
+    private class Travel extends OneShotBehaviour {
+        public void action() {
+
+        }
+    }
 }
 
 
