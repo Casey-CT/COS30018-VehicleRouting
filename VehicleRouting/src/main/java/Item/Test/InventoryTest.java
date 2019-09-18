@@ -89,5 +89,46 @@ public class InventoryTest {
         } catch (Exception ex) {
             ex.printStackTrace();
         }
+
+        System.out.println();
+        System.out.println("Testing Invalid JSON Representation");
+        try {
+            i = Inventory.deserialize("bah");
+            System.out.println(i.isEmpty());
+        } catch (Exception ex) {
+            ex.printStackTrace();
+        }
+
+
+        //Concatenate Inventory Test
+        i = new Inventory();
+        j = new Inventory();
+        System.out.println();
+        System.out.println("Testing Adding Empty Inventory to Inventory");
+        i.addItem(item1);
+        i.addItem(item2);
+        System.out.println(i.listItems());
+        System.out.println(i.addInventory(j));
+        System.out.println();
+        j.addItem(item3);
+        System.out.println(j.listItems());
+        System.out.println();
+        System.out.println("Testing Adding Inventory to Inventory");
+        System.out.println(i.addInventory(j));
+        System.out.println(i.listItems());
+        System.out.println();
+        System.out.println("Double Checking Removal of Items");
+        i = new Inventory();
+        j = new Inventory();
+        i.addItem(item1);
+        i.addItem(item2);
+        j.addItem(item3);
+        System.out.println(i.listItems());
+        System.out.println();
+        System.out.println(j.listItems());
+        i.removeItem(1);
+        j.addInventory(i);
+        System.out.println();
+        System.out.println(j.listItems());
     }
 }

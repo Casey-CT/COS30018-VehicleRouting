@@ -35,12 +35,18 @@ public class Inventory {
     }
 
     //Static Method, which returns a new Inventory Object, created from a JSON representation
+    //If Inventory is invalid, either from JSON or Invalid ids, returns an empty inventory
     public static Inventory deserialize(String json) {
         Gson gson = new Gson();
-        Inventory i = gson.fromJson(json, Inventory.class);
+        Inventory i;
+        try {
+            i = gson.fromJson(json, Inventory.class);
 
-        if(!i.isListValid()) {
-            throw new IllegalArgumentException("Item List Created From JSON Representation Does Not Have Unique Item IDs");
+            if(!i.isListValid()) {
+                throw new IllegalArgumentException("Item List Created From JSON Representation Does Not Have Unique Item IDs");
+            }
+        } catch(Exception ex) {
+            return new Inventory();
         }
 
         return i;
@@ -79,6 +85,19 @@ public class Inventory {
     public boolean addItem(Item item) {
         if(!hasItem(item.getId())) {
             return items.add(item);
+        }
+        else return false;
+    }
+
+    //Adds all Items in Parameter Inventory to this Inventory
+    //As it uses the addItem function, it will only add items with ids that do not currently exist in this inventory
+    //Return true if items added, false otherwise
+    public boolean addInventory(Inventory inventory) {
+        if(!inventory.isEmpty()) {
+            for(Item i: inventory.getItems()) {
+                addItem(i);
+            }
+            return true;
         }
         else return false;
     }
@@ -156,5 +175,10 @@ public class Inventory {
             }
         }
         return true;
+    }
+
+    //Returns underlying ArrayList of Items
+    public ArrayList<Item> getItems() {
+        return items;
     }
 }
