@@ -3,8 +3,10 @@ package Agent;
 import DeliveryPath.Path;
 import Item.Inventory;
 import Item.Item;
+import jade.core.AID;
 import jade.core.Agent;
 import jade.core.behaviours.*;
+import jade.domain.mobility.BehaviourLoadingVocabulary;
 import jade.lang.acl.ACLMessage;
 import jade.lang.acl.MessageTemplate;
 import jade.domain.DFService;
@@ -19,6 +21,7 @@ public class DeliveryAgent extends Agent {
 	private int currentLocation = 0;
 	private Inventory inventory = new Inventory();
 	private Path path;
+	private AID MRA_ID;
 	
     public int getCapacity() {
         return capacity;
@@ -34,23 +37,8 @@ public class DeliveryAgent extends Agent {
         if (args != null && args.length > 0) {
             capacity = Integer.parseInt(args[0].toString());
             System.out.println(getAID().getName() + ": My capacity is: " + capacity);
-
+            addBehaviour(new ListenForMessages());
             //Traversal and Delivery Test Data
-            Inventory i = new Inventory();
-            i.addItem(new Item(1, "Item 1", 2, 4, 2));
-            i.addItem(new Item(2, "Item 2", 2, 5, 1));
-            i.addItem(new Item(3, "Item 3", 5, 2, 1));
-            i.addItem(new Item(4, "Item 4", 6, 4, 4));
-
-            Path p = new Path(new int[]{3, 2, 4, 5, 6}, new int[]{5, 2, 4, 9, 3});
-
-            SequentialBehaviour sq = new SequentialBehaviour();
-            sq.addSubBehaviour(new loadInventory(i.serialize()));
-            sq.addSubBehaviour(new loadPath(p.serialize()));
-            sq.addSubBehaviour(new Travel());
-
-            addBehaviour(sq);
-
         } else {
             // Make the agent terminate immediately
             System.out.println("No capacity specified!");
@@ -59,10 +47,14 @@ public class DeliveryAgent extends Agent {
     }
 
     //Used to restart the agent if paused
-    protected void start() {}
+    protected void start() {
+        addBehaviour(new Travel());
+    }
 
     //Used to pause the agent and all it's behaviours
-    protected void pause() {}
+    protected void pause() {
+
+    }
 
     //Reusable function for sending a message to master agent
     protected void messageMaster(int performative, String content) {
@@ -72,6 +64,7 @@ public class DeliveryAgent extends Agent {
     protected void takeDown() {
         // Printout a dismissal message
         System.out.println("Delivery agent " + getAID().getName() + " terminating.");
+        doDelete();
     }
 
     private class ListenForMessages extends CyclicBehaviour {
@@ -91,6 +84,32 @@ public class DeliveryAgent extends Agent {
                 //MessageReader mr = new MessageReader();
                 //Items[] = mr.Read(msg.getContent());            //assuming we have an Items class
 
+                String messageContent = msg.getContent();
+                MRA_ID = msg.getSender();
+
+                if(msg.getPerformative() == ACLMessage.INFORM) {
+                    String[] jsonMessage = messageContent.split(":", 2);
+                    if(jsonMessage[0] == Inventory.INVENTORY)
+                        loadInventory(jsonMessage[1]);
+                    else if(jsonMessage[0] == Path.PATH)
+                        loadPath(jsonMessage[1]);
+                    else
+                        throw new IllegalArgumentException("Wrong message type");
+                } else if(msg.getPerformative() == ACLMessage.REQUEST) {
+                    if(messageContent == MasterRoutingAgent.CAPACITY) {
+                        ACLMessage reply = new ACLMessage(ACLMessage.INFORM);
+                        reply.setContent(Integer.toString(capacity));
+                        reply.addReceiver(MRA_ID);
+                        send(reply);
+                    }
+                    if(messageContent == MasterRoutingAgent.STOP) { }
+
+                    else if(messageContent == MasterRoutingAgent.START)
+                        start();
+
+                    else
+                        throw new IllegalArgumentException("Wrong message content");
+                }
                 ACLMessage reply = msg.createReply();
 
                 //if(at least one package has been received && package can be carried (not overloaded)) {
@@ -112,61 +131,63 @@ public class DeliveryAgent extends Agent {
     //Accepts the JSON representation of the inventory provided by the master routing agent
     //Adds the supplied inventory to this agent's inventory
     //Compares the given inventory against this Delivery Agents Capacity and Size Limits
-    private class loadInventory extends OneShotBehaviour {
-
-        String json;
-
-        public loadInventory(String json) {
-            this.json = json;
-        }
-
-        public void action() {
+    private boolean loadInventory(String json)  {
             Inventory temp = Inventory.deserialize(json);
+            ACLMessage reply = new ACLMessage(ACLMessage.CONFIRM);
             if(!temp.isEmpty()){
                 if(!((inventory.getTotalSize() + temp.getTotalSize()) > getCapacity())) {
                     if(inventory.addInventory(temp)){
-                        System.out.println(myAgent.getLocalName() + ": Items Were Added.\n" + inventory.listItems());
+                        System.out.println(getLocalName() + ": Items Were Added.\n" + inventory.listItems());
+                        reply.setContent(MasterRoutingAgent.INVENTORY_SUCCESS);
+                        send(reply);
                         //TODO: Add Message to Master Agent
+                        return true;
                     }
                     else {
-                        System.out.println(myAgent.getLocalName() + ": No Items Were Added.");
+                        System.out.println(getLocalName() + ": No Items Were Added.");
+                        reply.setContent(MasterRoutingAgent.INVENTORY_FAILURE);
+                        send(reply);
                         //TODO: Add Message to Master Agent
+                        return false;
                     }
                 }
                 else {
-                    System.out.println(myAgent.getLocalName() + ": Supplied Inventory Exceeded Capacity.");
+                    System.out.println(getLocalName() + ": Supplied Inventory Exceeded Capacity.");
+                    reply.setContent(MasterRoutingAgent.INVENTORY_FAILURE);
+                    send(reply);
                     //TODO: Add Message to Master Agent
+                    return false;
                 }
             }
             else {
-                System.out.println(myAgent.getLocalName() + ": Supplied Inventory was Empty.");
+                System.out.println(getLocalName() + ": Supplied Inventory was Empty.");
+                reply.setContent(MasterRoutingAgent.INVENTORY_FAILURE);
+                send(reply);
                 //TODO: Add Message to Master Agent
+                return false;
             }
         }
-    }
 
     //Should be added in the message handling behaviour
     //Accepts the JSON representation of the path provided by master router
     //Adds the supplied path to this Delivery Agent
-    private class loadPath extends OneShotBehaviour {
-
-        String json;
-
-        public loadPath(String json) {
-            this.json = json;
-        }
-
-        public void action() {
+    private boolean loadPath(String json) {
             Path p = Path.deserialize(json);
+            ACLMessage reply = new ACLMessage(ACLMessage.CONFIRM);
             if(p.isPathValid()) {
                 path = p;
-                System.out.println(myAgent.getLocalName() + ": Path Set");
+                System.out.println(getLocalName() + ": Path Set");
+                reply.setContent(MasterRoutingAgent.PATH_SUCCESS);
+                send(reply);
+                return true;
             }
             else{
-                System.out.println(myAgent.getLocalName() + ": Supplied Path was Invalid");
+                System.out.println(getLocalName() + ": Supplied Path was Invalid");
+                reply.setContent(MasterRoutingAgent.PATH_FAILURE);
+                send(reply);
+                return false;
             }
         }
-    }
 
     //Called when wakerbehaviour added by travel completes
     //Looks through package list, finds matching packages
@@ -236,8 +257,8 @@ public class DeliveryAgent extends Agent {
             else {
                 //TODO: Message Master Agent
                 System.out.println(myAgent.getLocalName() + ": PATH COMPLETE");
+                takeDown();
             }
-
         }
     }
 }
