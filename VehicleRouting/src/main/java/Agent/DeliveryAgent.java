@@ -1,5 +1,6 @@
 package Agent;
 
+import Communication.Message;
 import DeliveryPath.Path;
 import Item.Inventory;
 import Item.Item;
@@ -53,7 +54,6 @@ public class DeliveryAgent extends Agent {
 
     //Used to pause the agent and all it's behaviours
     protected void pause() {
-
     }
 
     //Reusable function for sending a message to master agent
@@ -80,6 +80,7 @@ public class DeliveryAgent extends Agent {
             ACLMessage msg = myAgent.receive();       //pass mt to receive()
 
             if (msg != null) {
+                System.out.println(myAgent.getLocalName() + ": Message Received");
                 //Message received. Process it.
                 //MessageReader mr = new MessageReader();
                 //Items[] = mr.Read(msg.getContent());            //assuming we have an Items class
@@ -89,28 +90,50 @@ public class DeliveryAgent extends Agent {
 
                 if(msg.getPerformative() == ACLMessage.INFORM) {
                     String[] jsonMessage = messageContent.split(":", 2);
-                    if(jsonMessage[0] == Inventory.INVENTORY)
-                        loadInventory(jsonMessage[1]);
-                    else if(jsonMessage[0] == Path.PATH)
-                        loadPath(jsonMessage[1]);
+                    ACLMessage reply = msg.createReply();
+                    reply.setPerformative(ACLMessage.INFORM);
+
+                    if(jsonMessage[0].equals(Inventory.INVENTORY)) {
+                        if(loadInventory(jsonMessage[1])) {
+                            reply.setContent(Message.INVENTORY_SUCCESS);
+                            send(reply);
+                            System.out.println(myAgent.getLocalName() + ": Sending Message");
+                        } else {
+                            reply.setContent(Message.INVENTORY_FAILURE);
+                            send(reply);
+                            System.out.println(myAgent.getLocalName() + ": Sending Message");
+                        }
+                    }
+
+                    else if(jsonMessage[0].equals(Path.PATH)) {
+                        if(loadPath(jsonMessage[1])) {
+                            reply.setContent(Message.PATH_SUCCESS);
+                            send(reply);
+                            System.out.println(myAgent.getLocalName() + ": Sending Message");
+                        } else {
+                            reply.setContent(Message.PATH_FAILURE);
+                            send(reply);
+                            System.out.println(myAgent.getLocalName() + ": Sending Message");
+                        }
+                    }
                     else
                         throw new IllegalArgumentException("Wrong message type");
                 } else if(msg.getPerformative() == ACLMessage.REQUEST) {
-                    if(messageContent == MasterRoutingAgent.CAPACITY) {
-                        ACLMessage reply = new ACLMessage(ACLMessage.INFORM);
+                    if(messageContent.equals(Message.CAPACITY)) {
+                        ACLMessage reply = msg.createReply();
+                        reply.setPerformative(ACLMessage.INFORM);
                         reply.setContent(Integer.toString(capacity));
-                        reply.addReceiver(MRA_ID);
                         send(reply);
+                        System.out.println(myAgent.getLocalName() + ": Sending Message");
                     }
-                    if(messageContent == MasterRoutingAgent.STOP) { }
 
-                    else if(messageContent == MasterRoutingAgent.START)
+                    else if(messageContent.equals(Message.START))
                         start();
 
                     else
                         throw new IllegalArgumentException("Wrong message content");
                 }
-                ACLMessage reply = msg.createReply();
+                //ACLMessage reply = msg.createReply();
 
                 //if(at least one package has been received && package can be carried (not overloaded)) {
                 //  reply.setPerformative(ACLMessage.INFORM);
@@ -121,11 +144,8 @@ public class DeliveryAgent extends Agent {
                 //  reply.setPerformative(ACLMessage.REFUSE);
                 //  reply.setContent("no packages received" || "cannot carry package, over capacity, dropping package");
             }
-            else{
-                    block();
-                }
-            }
         }
+    }
 
     //Should be added in the message handling behaviour, when the master agent supplies an inventory
     //Accepts the JSON representation of the inventory provided by the master routing agent
@@ -133,19 +153,19 @@ public class DeliveryAgent extends Agent {
     //Compares the given inventory against this Delivery Agents Capacity and Size Limits
     private boolean loadInventory(String json)  {
             Inventory temp = Inventory.deserialize(json);
-            ACLMessage reply = new ACLMessage(ACLMessage.CONFIRM);
+            ACLMessage reply = new ACLMessage(ACLMessage.INFORM);
             if(!temp.isEmpty()){
                 if(!((inventory.getTotalSize() + temp.getTotalSize()) > getCapacity())) {
                     if(inventory.addInventory(temp)){
                         System.out.println(getLocalName() + ": Items Were Added.\n" + inventory.listItems());
-                        reply.setContent(MasterRoutingAgent.INVENTORY_SUCCESS);
+                        reply.setContent(Message.INVENTORY_SUCCESS);
                         send(reply);
                         //TODO: Add Message to Master Agent
                         return true;
                     }
                     else {
                         System.out.println(getLocalName() + ": No Items Were Added.");
-                        reply.setContent(MasterRoutingAgent.INVENTORY_FAILURE);
+                        reply.setContent(Message.INVENTORY_FAILURE);
                         send(reply);
                         //TODO: Add Message to Master Agent
                         return false;
@@ -153,7 +173,7 @@ public class DeliveryAgent extends Agent {
                 }
                 else {
                     System.out.println(getLocalName() + ": Supplied Inventory Exceeded Capacity.");
-                    reply.setContent(MasterRoutingAgent.INVENTORY_FAILURE);
+                    reply.setContent(Message.INVENTORY_FAILURE);
                     send(reply);
                     //TODO: Add Message to Master Agent
                     return false;
@@ -161,7 +181,7 @@ public class DeliveryAgent extends Agent {
             }
             else {
                 System.out.println(getLocalName() + ": Supplied Inventory was Empty.");
-                reply.setContent(MasterRoutingAgent.INVENTORY_FAILURE);
+                reply.setContent(Message.INVENTORY_FAILURE);
                 send(reply);
                 //TODO: Add Message to Master Agent
                 return false;
@@ -173,17 +193,17 @@ public class DeliveryAgent extends Agent {
     //Adds the supplied path to this Delivery Agent
     private boolean loadPath(String json) {
             Path p = Path.deserialize(json);
-            ACLMessage reply = new ACLMessage(ACLMessage.CONFIRM);
+            ACLMessage reply = new ACLMessage(ACLMessage.INFORM);
             if(p.isPathValid()) {
                 path = p;
                 System.out.println(getLocalName() + ": Path Set");
-                reply.setContent(MasterRoutingAgent.PATH_SUCCESS);
+                reply.setContent(Message.PATH_SUCCESS);
                 send(reply);
                 return true;
             }
             else{
                 System.out.println(getLocalName() + ": Supplied Path was Invalid");
-                reply.setContent(MasterRoutingAgent.PATH_FAILURE);
+                reply.setContent(Message.PATH_FAILURE);
                 send(reply);
                 return false;
             }
