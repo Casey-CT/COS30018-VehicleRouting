@@ -11,6 +11,11 @@ import java.util.ArrayList;
 public class Inventory {
     private ArrayList<Item> items;
 
+    public static final String INVENTORY = "INVENTORY";
+
+
+
+
     //Regular Constructor
     public Inventory(ArrayList<Item> items) {
         this.items = items;

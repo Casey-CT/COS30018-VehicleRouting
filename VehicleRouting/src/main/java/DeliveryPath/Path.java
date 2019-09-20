@@ -10,6 +10,8 @@ public class Path {
     //Constants
     public static final int NOT_STARTED = -1;
     public static final int COMPLETE = -2;
+    public static final String PATH = "PATH";
+
 
     //Fields
     //int[] locations - Array of locations node ids
