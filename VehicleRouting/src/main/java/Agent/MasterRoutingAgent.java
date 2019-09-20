@@ -72,9 +72,6 @@ public class MasterRoutingAgent extends Agent {
         //Number of received replies
         private int replyCount = 0;
 
-        //Reusable Message
-        private ACLMessage message;
-
         //Message Template for replies
         private MessageTemplate mt;
 
@@ -111,22 +108,23 @@ public class MasterRoutingAgent extends Agent {
 
                     System.out.println(getLocalName() + ": Found " + agents.size() + " Agents");
 
+                    for(AgentData agent: agents) {
+                        System.out.println(agent.getName());
+                    }
+
                     if(agents.size() > 0) {
-                        message = new ACLMessage(ACLMessage.REQUEST);
+                        ACLMessage capacity_request = new ACLMessage(ACLMessage.REQUEST);
                         for(AgentData agent: agents) {
-                            message.addReceiver(agent.getName());
+                            capacity_request.addReceiver(agent.getName());
                         }
-                        message.setContent(Message.CAPACITY);
-                        message.setConversationId("processRoute");
-                        message.setReplyWith("Request" + System.currentTimeMillis());
-                        myAgent.send(message);
+                        capacity_request.setContent(Message.CAPACITY);
+                        capacity_request.setConversationId("processRoute");
+                        capacity_request.setReplyWith("Request" + System.currentTimeMillis());
+                        myAgent.send(capacity_request);
 
-                        mt = MessageTemplate.and(MessageTemplate.MatchConversationId("processRoute"), MessageTemplate.MatchInReplyTo(message.getReplyWith()));
+                        mt = MessageTemplate.and(MessageTemplate.MatchConversationId("processRoute"), MessageTemplate.MatchInReplyTo(capacity_request.getReplyWith()));
 
-                        //Just in Case
-                        message = null;
-
-                        step++;
+                        step = 1;
                     }
                     else {
                         System.out.println("No Agents Found");
@@ -137,19 +135,19 @@ public class MasterRoutingAgent extends Agent {
 
                 case 1:
                     System.out.println("Step 1");
-                    message = myAgent.receive(mt);
-                    if(message != null) {
+                    ACLMessage capacity_response = myAgent.receive(mt);
+                    if(capacity_response != null) {
 
-                        if(message.getPerformative() == ACLMessage.INFORM) {
+                        if(capacity_response.getPerformative() == ACLMessage.INFORM) {
                             for (AgentData agent: agents) {
-                                if(agent.matchData(message.getSender())) {
-                                    agent.setCapacity(Integer.parseInt(message.getContent()));
+                                if(agent.matchData(capacity_response.getSender())) {
+                                    agent.setCapacity(Integer.parseInt(capacity_response.getContent()));
                                 }
                             }
                         }
                         else {
                             try {
-                                throw new Exception(myAgent.getLocalName() + ": ERROR - " + message.getSender().toString() + " supplied an invalid capacity");
+                                throw new Exception(myAgent.getLocalName() + ": ERROR - " + capacity_response.getSender().toString() + " supplied an invalid capacity");
                             } catch (Exception ex){
                                 ex.printStackTrace();
                             }
@@ -158,12 +156,8 @@ public class MasterRoutingAgent extends Agent {
                         replyCount++;
                         System.out.println(getLocalName() + ": Received " + replyCount + " replies out of " + agents.size());
                         if(replyCount >= agents.size()) {
-
-                            //Just in Case
-                            message = null;
-
                             replyCount = 0;
-                            step++;
+                            step = 2;
                         }
                     }
                     else {
@@ -175,7 +169,6 @@ public class MasterRoutingAgent extends Agent {
                 case 2:
                     System.out.println("Step 2");
                     //TODO: CREATE DUMMY INVENTORY DATA
-                    ArrayList<Item> items = new ArrayList<>();
                     Item item1 = new Item(1, "Item1", 2, 1, 1);
                     Item item2 = new Item(2, "Item2", 5, 1, 1);
                     Item item3 = new Item(3, "Item3", 7, 1, 1);
@@ -186,23 +179,20 @@ public class MasterRoutingAgent extends Agent {
                     Item item8 = new Item(8, "Item8", 3, 1, 1);
                     Item item9 = new Item(9, "Item9", 6, 1, 1);
 
-                    items.add(item1);
-                    items.add(item2);
-                    items.add(item3);
+                    Inventory i1 = new Inventory();
+                    i1.addItem(item1);
+                    i1.addItem(item2);
+                    i1.addItem(item3);
 
-                    Inventory i1 = new Inventory(items);
+                    Inventory i2 = new Inventory();
+                    i2.addItem(item4);
+                    i2.addItem(item5);
+                    i2.addItem(item6);
 
-                    items.clear();
-                    items.add(item4);
-                    items.add(item5);
-                    items.add(item6);
-                    Inventory i2 = new Inventory(items);
-
-                    items.clear();
-                    items.add(item7);
-                    items.add(item8);
-                    items.add(item9);
-                    Inventory i3 = new Inventory(items);
+                    Inventory i3 = new Inventory();
+                    i3.addItem(item7);
+                    i3.addItem(item8);
+                    i3.addItem(item9);
 
 
                     //TODO: CREATE DUMMY PATH DATA
@@ -211,32 +201,33 @@ public class MasterRoutingAgent extends Agent {
                     Path p3 = new Path(new int[]{2,3,6}, new int[]{5,3,6});
 
                     //Add Inventories and Paths to the AgentData Objects
-                    try{
-                        agents.get(0).setJsonInventory(i1.serialize());
-                        agents.get(0).setJsonPath(p1.serialize());
 
-                        agents.get(1).setJsonInventory(i2.serialize());
-                        agents.get(1).setJsonPath(p2.serialize());
+                    Path[] paths = {p1, p2, p3};
+                    Inventory[] inventories = {i1, i2, i3};
 
-                        agents.get(2).setJsonInventory(i3.serialize());
-                        agents.get(2).setJsonPath(p3.serialize());
-                    }catch(Exception ex) {
-                        System.out.println("We're Idiots");
-                        ex.printStackTrace();
+                    int i = 0;
+                    for(AgentData agent: agents) {
+                        agent.setJsonInventory(inventories[i].serialize());
+                        System.out.println(agent.getJsonInventory());
+                        agent.setJsonPath(paths[i].serialize());
+                        System.out.println(agent.getJsonPath());
+                        i++;
                     }
 
                     //Set up Message
-                    message = new ACLMessage(ACLMessage.INFORM);
-                    message.setConversationId("processRoute");
-                    message.setReplyWith(Message.INVENTORY + System.currentTimeMillis());
-                    mt = MessageTemplate.and(MessageTemplate.MatchConversationId("processRoute"), MessageTemplate.MatchInReplyTo(message.getReplyWith()));
+                    ACLMessage inventory_add = new ACLMessage(ACLMessage.INFORM);
+                    inventory_add.setConversationId("processRoute");
+                    inventory_add.setReplyWith(Message.INVENTORY + System.currentTimeMillis());
+                    mt = MessageTemplate.and(MessageTemplate.MatchConversationId("processRoute"), MessageTemplate.MatchInReplyTo(inventory_add.getReplyWith()));
 
                     //Send Inventory to Each Agent
                     for(AgentData agent: agents) {
                         if(!agent.getJsonInventory().isEmpty()) {
-                            message.addReceiver(agent.getName());
-                            message.setContent(Message.INVENTORY + ":" + agent.getJsonInventory());
-                            myAgent.send(message);
+                            inventory_add.clearAllReceiver();
+                            inventory_add.addReceiver(agent.getName());
+                            inventory_add.setContent(Message.INVENTORY + ":" + agent.getJsonInventory());
+                            System.out.println(inventory_add.getContent());
+                            myAgent.send(inventory_add);
                         }
                         else {
                             try {
@@ -247,31 +238,28 @@ public class MasterRoutingAgent extends Agent {
                         }
                     }
 
-                    //Just in Case
-                    message = null;
-
-                    step++;
+                    step = 3;
 
                     break;
 
                 case 3:
                     System.out.println("Step 3");
                     //Process Inventory Replies
-                    message = myAgent.receive(mt);
-                    if(message != null) {
+                    ACLMessage inventory_response = myAgent.receive(mt);
+                    if(inventory_response != null) {
 
-                        if(message.getPerformative() == ACLMessage.INFORM) {
+                        if(inventory_response.getPerformative() == ACLMessage.INFORM) {
                             for (AgentData agent: agents) {
-                                if(agent.matchData(message.getSender())) {
+                                if(agent.matchData(inventory_response.getSender())) {
                                     //Set the inventory in AgentData Object here, but we don't need to do anything in here for now.
                                 }
                             }
-                            if(message.getContent().equals(Message.INVENTORY_SUCCESS)) {
+                            if(inventory_response.getContent().equals(Message.INVENTORY_SUCCESS)) {
                                 //Do Nothing, this is what we want
                             }
-                            else if(message.getContent().equals(Message.INVENTORY_FAILURE)) {
+                            else if(inventory_response.getContent().equals(Message.INVENTORY_FAILURE)) {
                                 try {
-                                    throw new Exception(myAgent.getLocalName() + ": ERROR - " + message.getSender().toString() + " could not load supplied inventory");
+                                    throw new Exception(myAgent.getLocalName() + ": ERROR - " + inventory_response.getSender().toString() + " could not load supplied inventory");
                                 } catch (Exception ex) {
                                     ex.printStackTrace();
                                 }
@@ -279,7 +267,7 @@ public class MasterRoutingAgent extends Agent {
                         }
                         else {
                             try {
-                                throw new Exception(myAgent.getLocalName() + ": ERROR - " + message.getSender().toString() + " replied with incorrect performative");
+                                throw new Exception(myAgent.getLocalName() + ": ERROR - " + inventory_response.getSender().toString() + " replied with incorrect performative");
                             } catch (Exception ex){
                                 ex.printStackTrace();
                             }
@@ -287,12 +275,8 @@ public class MasterRoutingAgent extends Agent {
 
                         replyCount++;
                         if(replyCount >= agents.size()) {
-
-                            //Just in Case
-                            message = null;
-
                             replyCount = 0;
-                            step++;
+                            step = 4;
                         }
                     }
                     else {
@@ -305,17 +289,18 @@ public class MasterRoutingAgent extends Agent {
                     System.out.println("Step 4");
                     //Send Paths to all DAs
                     //Set up Message
-                    message = new ACLMessage(ACLMessage.INFORM);
-                    message.setConversationId("processRoute");
-                    message.setReplyWith(Message.PATH + System.currentTimeMillis());
-                    mt = MessageTemplate.and(MessageTemplate.MatchConversationId("processRoute"), MessageTemplate.MatchInReplyTo(message.getReplyWith()));
+                    ACLMessage path_add = new ACLMessage(ACLMessage.INFORM);
+                    path_add.setConversationId("processRoute");
+                    path_add.setReplyWith(Message.PATH + System.currentTimeMillis());
+                    mt = MessageTemplate.and(MessageTemplate.MatchConversationId("processRoute"), MessageTemplate.MatchInReplyTo(path_add.getReplyWith()));
 
                     //Send Inventory to Each Agent
                     for(AgentData agent: agents) {
                         if(!agent.getJsonInventory().isEmpty()) {
-                            message.addReceiver(agent.getName());
-                            message.setContent(Message.PATH + ":" + agent.getJsonPath());
-                            myAgent.send(message);
+                            path_add.clearAllReceiver();
+                            path_add.addReceiver(agent.getName());
+                            path_add.setContent(Message.PATH + ":" + agent.getJsonPath());
+                            myAgent.send(path_add);
                         }
                         else {
                             try {
@@ -326,30 +311,27 @@ public class MasterRoutingAgent extends Agent {
                         }
                     }
 
-                    //Just in Case
-                    message = null;
-
-                    step++;
+                    step = 5;
                     break;
 
                 case 5:
                     System.out.println("Step 5");
                     //Process all replies
-                    message = myAgent.receive(mt);
-                    if(message != null) {
+                    ACLMessage path_response = myAgent.receive(mt);
+                    if(path_response != null) {
 
-                        if(message.getPerformative() == ACLMessage.INFORM) {
+                        if(path_response.getPerformative() == ACLMessage.INFORM) {
                             for (AgentData agent: agents) {
-                                if(agent.matchData(message.getSender())) {
+                                if(agent.matchData(path_response.getSender())) {
                                     //Set the path in AgentData Object here, but we don't need to do anything in here for now.
                                 }
                             }
-                            if(message.getContent().equals(Message.PATH_SUCCESS)) {
+                            if(path_response.getContent().equals(Message.PATH_SUCCESS)) {
                                 //Do Nothing, this is what we want
                             }
-                            else if(message.getContent().equals(Message.PATH_FAILURE)) {
+                            else if(path_response.getContent().equals(Message.PATH_FAILURE)) {
                                 try {
-                                    throw new Exception(myAgent.getLocalName() + ": ERROR - " + message.getSender().toString() + " could not load supplied path");
+                                    throw new Exception(myAgent.getLocalName() + ": ERROR - " + path_response.getSender().toString() + " could not load supplied path");
                                 } catch (Exception ex) {
                                     ex.printStackTrace();
                                 }
@@ -357,7 +339,7 @@ public class MasterRoutingAgent extends Agent {
                         }
                         else {
                             try {
-                                throw new Exception(myAgent.getLocalName() + ": ERROR - " + message.getSender().toString() + " replied with incorrect performative");
+                                throw new Exception(myAgent.getLocalName() + ": ERROR - " + path_response.getSender().toString() + " replied with incorrect performative");
                             } catch (Exception ex){
                                 ex.printStackTrace();
                             }
@@ -365,12 +347,8 @@ public class MasterRoutingAgent extends Agent {
 
                         replyCount++;
                         if(replyCount >= agents.size()) {
-
-                            //Just in Case
-                            message = null;
-
                             replyCount = 0;
-                            step++;
+                            step = 6;
                         }
                     }
                     else {
@@ -382,12 +360,12 @@ public class MasterRoutingAgent extends Agent {
                 case 6:
                     System.out.println("Step 6");
                     //Tell all DAs to Start
-                    message = new ACLMessage(ACLMessage.REQUEST);
+                    ACLMessage start = new ACLMessage(ACLMessage.REQUEST);
                     for(AgentData agent: agents) {
-                        message.addReceiver(agent.getName());
+                        start.addReceiver(agent.getName());
                     }
-                    message.setContent(Message.START);
-                    myAgent.send(message);
+                    start.setContent(Message.START);
+                    myAgent.send(start);
 
                     done = true;
                     

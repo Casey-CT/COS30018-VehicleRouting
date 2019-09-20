@@ -97,11 +97,11 @@ public class DeliveryAgent extends Agent {
                         if(loadInventory(jsonMessage[1])) {
                             reply.setContent(Message.INVENTORY_SUCCESS);
                             send(reply);
-                            System.out.println(myAgent.getLocalName() + ": Sending Message");
+                            System.out.println(myAgent.getLocalName() + ": Sending Inventory Success Message");
                         } else {
                             reply.setContent(Message.INVENTORY_FAILURE);
                             send(reply);
-                            System.out.println(myAgent.getLocalName() + ": Sending Message");
+                            System.out.println(myAgent.getLocalName() + ": Sending Inventory Failure Message");
                         }
                     }
 
@@ -109,11 +109,11 @@ public class DeliveryAgent extends Agent {
                         if(loadPath(jsonMessage[1])) {
                             reply.setContent(Message.PATH_SUCCESS);
                             send(reply);
-                            System.out.println(myAgent.getLocalName() + ": Sending Message");
+                            System.out.println(myAgent.getLocalName() + ": Sending Path Success Message");
                         } else {
                             reply.setContent(Message.PATH_FAILURE);
                             send(reply);
-                            System.out.println(myAgent.getLocalName() + ": Sending Message");
+                            System.out.println(myAgent.getLocalName() + ": Sending Path Failure Message");
                         }
                     }
                     else
@@ -124,7 +124,7 @@ public class DeliveryAgent extends Agent {
                         reply.setPerformative(ACLMessage.INFORM);
                         reply.setContent(Integer.toString(capacity));
                         send(reply);
-                        System.out.println(myAgent.getLocalName() + ": Sending Message");
+                        System.out.println(myAgent.getLocalName() + ": Sending Capacity Message");
                     }
 
                     else if(messageContent.equals(Message.START))
