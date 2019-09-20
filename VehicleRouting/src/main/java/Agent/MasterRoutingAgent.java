@@ -95,7 +95,7 @@ public class MasterRoutingAgent extends Agent {
 
                     try {
                         SearchConstraints c = new SearchConstraints();
-                        c.setMaxDepth((long) -1);
+                        c.setMaxResults((long) -1);
                         a = AMSService.search(myAgent, new AMSAgentDescription(), c);
                     } catch (Exception ex) {
                         System.out.println(myAgent.getLocalName() + ": ERROR in Finding Delivery Agents" + ex );
@@ -104,13 +104,12 @@ public class MasterRoutingAgent extends Agent {
 
                     //TODO: Fix this jank
                     for(int i = 0; i < a.length; i++) {
-                        System.out.println(a[i].getName().toString());
-                        if(a[i].getName() != getAID()) {
+                        if(a[i].getName().toString().contains("DeliveryAgent")) {
                             agents.add(new AgentData(a[i].getName()));
                         }
                     }
 
-                    System.out.println(getLocalName() + ": Found " + agents.size() + "Agents");
+                    System.out.println(getLocalName() + ": Found " + agents.size() + " Agents");
 
                     if(agents.size() > 0) {
                         message = new ACLMessage(ACLMessage.REQUEST);
