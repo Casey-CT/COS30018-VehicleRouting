@@ -4,6 +4,7 @@ package Agent;
 import Agent.AgentInfo.AgentData;
 import Communication.Message;
 import DeliveryPath.Path;
+import GUI.MyAgentInterface;
 import Item.Inventory;
 import Item.Item;
 import jade.core.Agent;
@@ -18,7 +19,7 @@ import jade.lang.acl.MessageTemplate;
 
 import java.util.ArrayList;
 
-public class MasterRoutingAgent extends Agent {
+public class MasterRoutingAgent extends Agent implements MyAgentInterface {
     private ArrayList<AgentData> agents = new ArrayList<>();
 
     public ArrayList<AgentData> getAgents() {
@@ -55,12 +56,7 @@ public class MasterRoutingAgent extends Agent {
 
     protected void setup() {
         System.out.println(getAID().getLocalName() + ": I have been created");
-
-        try{
-            Thread.sleep(5000);
-        }catch(Exception ex){System.out.println("Sleeping caused an error");}
-
-        addBehaviour(new processRoutes());
+        registerO2AInterface(MyAgentInterface.class, this);
     }
 
     private Inventory masterInventory = new Inventory();
@@ -380,4 +376,9 @@ public class MasterRoutingAgent extends Agent {
             return done;
         }
     }
+    @Override
+    public void StartMasterAgent() {
+
+    }
+
 }
