@@ -84,7 +84,7 @@ public class MasterRoutingAgent extends Agent {
         public void action() {
             switch(step) {
                 case 0:
-                    System.out.println("Step 0");
+                    System.out.println(getLocalName() + ": Finding Delivery Agents");
 
                     //Find all Delivery Agents with AMS
                     //Send them a request for their information
@@ -95,19 +95,20 @@ public class MasterRoutingAgent extends Agent {
                         c.setMaxResults((long) -1);
                         a = AMSService.search(myAgent, new AMSAgentDescription(), c);
                     } catch (Exception ex) {
-                        System.out.println(myAgent.getLocalName() + ": ERROR in Finding Delivery Agents" + ex );
+                        System.out.println(myAgent.getLocalName() + ": AMS ERROR while Finding Delivery Agents" + ex );
                         ex.printStackTrace();
                     }
 
-                    //TODO: Fix this jank
+                    //TODO: Find a more reliable solution for this
+                    //Find delivery agent based on agent type, rather than name
                     for(int i = 0; i < a.length; i++) {
                         if(a[i].getName().toString().contains("DeliveryAgent")) {
                             agents.add(new AgentData(a[i].getName()));
                         }
                     }
 
-                    System.out.println(getLocalName() + ": Found " + agents.size() + " Agents");
-
+                    //Debug Stuff - Can be removed/disabled
+                    System.out.println(getLocalName() + ": Found " + agents.size() + " Delivery Agents");
                     for(AgentData agent: agents) {
                         System.out.println(agent.getName());
                     }
@@ -124,6 +125,8 @@ public class MasterRoutingAgent extends Agent {
 
                         mt = MessageTemplate.and(MessageTemplate.MatchConversationId("processRoute"), MessageTemplate.MatchInReplyTo(capacity_request.getReplyWith()));
 
+                        System.out.println(getLocalName() + ": Capacity Request Send to All Delivery Agents");
+
                         step = 1;
                     }
                     else {
@@ -134,7 +137,7 @@ public class MasterRoutingAgent extends Agent {
                     break;
 
                 case 1:
-                    System.out.println("Step 1");
+                    System.out.println(getLocalName() + ": Handling Capacity Request Responses");
                     ACLMessage capacity_response = myAgent.receive(mt);
                     if(capacity_response != null) {
 
@@ -162,13 +165,14 @@ public class MasterRoutingAgent extends Agent {
                     }
                     else {
                         block();
-                        System.out.println(myAgent.getLocalName() + ": Blocking in Step 1");
+                        System.out.println(myAgent.getLocalName() + ": Blocking While Handling Capacity Request");
                     }
                     break;
 
                 case 2:
-                    System.out.println("Step 2");
-                    //TODO: CREATE DUMMY INVENTORY DATA
+                    System.out.println(getLocalName() + ": Allocating Inventories and Paths to Each Delivery Agent");
+
+                    //TODO: Replace Dummy Data with CSP Solver
                     Item item1 = new Item(1, "Item1", 2, 1, 1);
                     Item item2 = new Item(2, "Item2", 5, 1, 1);
                     Item item3 = new Item(3, "Item3", 7, 1, 1);
@@ -194,25 +198,22 @@ public class MasterRoutingAgent extends Agent {
                     i3.addItem(item8);
                     i3.addItem(item9);
 
-
-                    //TODO: CREATE DUMMY PATH DATA
                     Path p1 = new Path(new int[]{1,3,5,4,7}, new int[]{4,3,2,5,2});
                     Path p2 = new Path(new int[]{6,1,2,9}, new int[]{2,5,3,1});
                     Path p3 = new Path(new int[]{2,3,6}, new int[]{5,3,6});
 
                     //Add Inventories and Paths to the AgentData Objects
-
                     Path[] paths = {p1, p2, p3};
                     Inventory[] inventories = {i1, i2, i3};
 
                     int i = 0;
                     for(AgentData agent: agents) {
                         agent.setJsonInventory(inventories[i].serialize());
-                        System.out.println(agent.getJsonInventory());
                         agent.setJsonPath(paths[i].serialize());
-                        System.out.println(agent.getJsonPath());
                         i++;
                     }
+
+                    System.out.println(getLocalName() + ": Inventories and Paths Created and Assigned");
 
                     //Set up Message
                     ACLMessage inventory_add = new ACLMessage(ACLMessage.INFORM);
@@ -226,7 +227,6 @@ public class MasterRoutingAgent extends Agent {
                             inventory_add.clearAllReceiver();
                             inventory_add.addReceiver(agent.getName());
                             inventory_add.setContent(Message.INVENTORY + ":" + agent.getJsonInventory());
-                            System.out.println(inventory_add.getContent());
                             myAgent.send(inventory_add);
                         }
                         else {
@@ -238,12 +238,14 @@ public class MasterRoutingAgent extends Agent {
                         }
                     }
 
+                    System.out.println(getLocalName() + ": Inventories Sent to Each Delivery Agent");
+
                     step = 3;
 
                     break;
 
                 case 3:
-                    System.out.println("Step 3");
+                    System.out.println(getLocalName() + ": Handling DA Inventory Responses");
                     //Process Inventory Replies
                     ACLMessage inventory_response = myAgent.receive(mt);
                     if(inventory_response != null) {
@@ -274,6 +276,8 @@ public class MasterRoutingAgent extends Agent {
                         }
 
                         replyCount++;
+                        System.out.println(getLocalName() + ": Received " + replyCount + " Responses out of " + agents.size());
+
                         if(replyCount >= agents.size()) {
                             replyCount = 0;
                             step = 4;
@@ -281,12 +285,12 @@ public class MasterRoutingAgent extends Agent {
                     }
                     else {
                         block();
-                        System.out.println(myAgent.getLocalName() + ": Blocking in Step 3");
+                        System.out.println(myAgent.getLocalName() + ": Blocking While Handling DA Inventory Response");
                     }
                     break;
 
                 case 4:
-                    System.out.println("Step 4");
+                    System.out.println(getLocalName() + ": Sending Paths to Each Delivery Agent");
                     //Send Paths to all DAs
                     //Set up Message
                     ACLMessage path_add = new ACLMessage(ACLMessage.INFORM);
@@ -311,11 +315,13 @@ public class MasterRoutingAgent extends Agent {
                         }
                     }
 
+                    System.out.println(getLocalName() + ": Paths Sent to All Delivery Agents");
+
                     step = 5;
                     break;
 
                 case 5:
-                    System.out.println("Step 5");
+                    System.out.println(getLocalName() + ": Handling DA Path Responses");
                     //Process all replies
                     ACLMessage path_response = myAgent.receive(mt);
                     if(path_response != null) {
@@ -346,6 +352,8 @@ public class MasterRoutingAgent extends Agent {
                         }
 
                         replyCount++;
+                        System.out.println(getLocalName() + ": Received " + replyCount + " Replies out of " + agents.size());
+
                         if(replyCount >= agents.size()) {
                             replyCount = 0;
                             step = 6;
@@ -353,12 +361,12 @@ public class MasterRoutingAgent extends Agent {
                     }
                     else {
                         block();
-                        System.out.println(myAgent.getLocalName() + ": Blocking in Step 5");
+                        System.out.println(myAgent.getLocalName() + ": Blocking While Handling DA Path Response");
                     }
                     break;
 
                 case 6:
-                    System.out.println("Step 6");
+                    System.out.println(getLocalName() + ": Sending All Delivery Agents Start Request");
                     //Tell all DAs to Start
                     ACLMessage start = new ACLMessage(ACLMessage.REQUEST);
                     for(AgentData agent: agents) {
@@ -367,12 +375,14 @@ public class MasterRoutingAgent extends Agent {
                     start.setContent(Message.START);
                     myAgent.send(start);
 
+                    System.out.println(getLocalName() + ": All Delivery Agents Requested to Start");
+
                     done = true;
                     
                     break;
 
                 default:
-                    throw new RuntimeException("beginRouting is at an invalid step");
+                    throw new RuntimeException(getLocalName() + ": beginRouting is at an invalid step");
             }
         }
 

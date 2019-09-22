@@ -94,6 +94,8 @@ public class DeliveryAgent extends Agent {
                     reply.setPerformative(ACLMessage.INFORM);
 
                     if(jsonMessage[0].equals(Inventory.INVENTORY)) {
+                        System.out.println(myAgent.getLocalName() + ": Received New Inventory Message");
+
                         if(loadInventory(jsonMessage[1])) {
                             reply.setContent(Message.INVENTORY_SUCCESS);
                             send(reply);
@@ -106,6 +108,8 @@ public class DeliveryAgent extends Agent {
                     }
 
                     else if(jsonMessage[0].equals(Path.PATH)) {
+                        System.out.println(myAgent.getLocalName() + ": Received New Path Message");
+
                         if(loadPath(jsonMessage[1])) {
                             reply.setContent(Message.PATH_SUCCESS);
                             send(reply);
@@ -117,9 +121,11 @@ public class DeliveryAgent extends Agent {
                         }
                     }
                     else
-                        throw new IllegalArgumentException("Wrong message type");
+                        throw new IllegalArgumentException(myAgent.getLocalName() + ": Received Wrong message type");
                 } else if(msg.getPerformative() == ACLMessage.REQUEST) {
                     if(messageContent.equals(Message.CAPACITY)) {
+                        System.out.println(myAgent.getLocalName() + ": Received Capacity Request");
+
                         ACLMessage reply = msg.createReply();
                         reply.setPerformative(ACLMessage.INFORM);
                         reply.setContent(Integer.toString(capacity));
@@ -127,8 +133,11 @@ public class DeliveryAgent extends Agent {
                         System.out.println(myAgent.getLocalName() + ": Sending Capacity Message");
                     }
 
-                    else if(messageContent.equals(Message.START))
+                    else if(messageContent.equals(Message.START)) {
+                        System.out.println(myAgent.getLocalName() + ": Received Start Request");
                         start();
+                    }
+
 
                     else
                         throw new IllegalArgumentException("Wrong message content");
