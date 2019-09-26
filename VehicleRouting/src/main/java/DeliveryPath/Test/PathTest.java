@@ -15,6 +15,10 @@ public class PathTest {
         System.out.println("Testing Deserialization");
         Path q = Path.deserialize(json);
 
+        //Testing Validity
+        System.out.println("Testing Validity");
+        System.out.println(q.isPathValid());
+
         q.traversePath();
         System.out.println("Next Location: " + q.getNextLocation());
         System.out.println("Next Distance: " + q.getNextDistance());

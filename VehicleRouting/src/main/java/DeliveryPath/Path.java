@@ -8,8 +8,10 @@ import com.google.gson.Gson;
 //Class for containing data about a delivery agents path
 public class Path {
     //Constants
-    public final int NOT_STARTED = -1;
-    public final int COMPLETE = -1;
+    public static final int NOT_STARTED = -1;
+    public static final int COMPLETE = -2;
+    public static final String PATH = "PATH";
+
 
     //Fields
     //int[] locations - Array of locations node ids
@@ -96,6 +98,14 @@ public class Path {
 
     public boolean isPathComplete() {
         return locationPointer == pathLength;
+    }
+
+    public boolean isPathValid() {
+        return (locations != null &&
+                distances != null &&
+                locations.length == distances.length &&
+                locations.length == pathLength &&
+                pathLength > 0);
     }
 
     //Field Getters
