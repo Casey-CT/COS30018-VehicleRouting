@@ -56,6 +56,17 @@ public class MasterRoutingAgent extends Agent {
     protected void setup() {
         System.out.println(getAID().getLocalName() + ": I have been created");
 
+        //Add Dummy Item Data
+        masterInventory.addItem(new Item(1, "Item1", 2, 1, 1));
+        masterInventory.addItem(new Item(2, "Item2", 5, 4, 1));
+        masterInventory.addItem(new Item(3, "Item3", 7, 2, 1));
+        masterInventory.addItem(new Item(4, "Item4", 6, 1, 1));
+        masterInventory.addItem(new Item(5, "Item5", 1, 3, 1));
+        masterInventory.addItem(new Item(6, "Item6", 9, 1, 1));
+        masterInventory.addItem(new Item(7, "Item7", 3, 6, 1));
+        masterInventory.addItem(new Item(8, "Item8", 3, 4, 1));
+        masterInventory.addItem(new Item(9, "Item9", 6, 2, 1));
+
         try{
             Thread.sleep(5000);
         }catch(Exception ex){System.out.println("Sleeping caused an error");}
@@ -143,6 +154,7 @@ public class MasterRoutingAgent extends Agent {
 
                         if(capacity_response.getPerformative() == ACLMessage.INFORM) {
                             for (AgentData agent: agents) {
+                                System.out.println(agent.getName().toString() + " - " + capacity_response.getSender().toString() + " - " + capacity_response.getContent());
                                 if(agent.matchData(capacity_response.getSender())) {
                                     agent.setCapacity(Integer.parseInt(capacity_response.getContent()));
                                 }
@@ -172,31 +184,96 @@ public class MasterRoutingAgent extends Agent {
                 case 2:
                     System.out.println(getLocalName() + ": Allocating Inventories and Paths to Each Delivery Agent");
 
-                    //TODO: Replace Dummy Data with CSP Solver
-                    Item item1 = new Item(1, "Item1", 2, 1, 1);
-                    Item item2 = new Item(2, "Item2", 5, 1, 1);
-                    Item item3 = new Item(3, "Item3", 7, 1, 1);
-                    Item item4 = new Item(4, "Item4", 6, 1, 1);
-                    Item item5 = new Item(5, "Item5", 1, 1, 1);
-                    Item item6 = new Item(6, "Item6", 9, 1, 1);
-                    Item item7 = new Item(7, "Item7", 3, 1, 1);
-                    Item item8 = new Item(8, "Item8", 3, 1, 1);
-                    Item item9 = new Item(9, "Item9", 6, 1, 1);
+                    //TODO: Finish Working CSP Solver
+                    //Data to Give CSP Solver
+                    //Number of Items
+                    int N = masterInventory.getLength();
 
+                    //Node ID of each Items destination
+                    int[] dest = new int[masterInventory.getLength()];
+                    int i = 0;
+                    for(Item item: masterInventory.getItems()) {
+                        dest[i] = item.getDestination();
+                        i++;
+                    }
+
+                    //Each Items Weight Variable
+                    int[] weight = new int[masterInventory.getLength()];
+                    i = 0;
+                    for(Item item: masterInventory.getItems()) {
+                        weight[i] = item.getWeight();
+                        i++;
+                    }
+
+                    //Int ID of each Delivery agent. Would correspond to agent's index in the agents ArrayList
+                    //This might not work, but I think this should be fine
+                    int[] da = new int[agents.size()];
+                    for(i = 0; i < agents.size(); i++) {
+                        da[i] = i;
+                    }
+
+                    //Carrying Capacity of each Delivery Agent
+                    int[] da_weight = new int[agents.size()];
+                    i = 0;
+                    for(AgentData agent: agents) {
+                        da_weight[i] = agent.getCapacity();
+                        i++;
+                    }
+
+                    //Map of Shortest Distances Between Each Node
+                    int[][] loc_dist = {};
+
+                    /*
+                    //Testing Output of Data
+                    System.out.println();
+                    System.out.println("Number of Packages: " + N);
+                    System.out.print("Package Destinations: ");
+                    for(i = 0; i < dest.length; i++){
+                        System.out.print(dest[i] + " ");
+                    }
+                    System.out.println();
+                    System.out.print("Package Weights: ");
+                    for(i = 0; i < weight.length; i++) {
+                        System.out.print(weight[i] + " ");
+                    }
+                    System.out.println();
+                    System.out.print("DA IDs: ");
+                    for(i = 0; i < da.length; i++) {
+                        System.out.print(da[i] + " ");
+                    }
+                    System.out.println();
+                    System.out.print("DA Capacities: ");
+                    for(i = 0; i < da_weight.length; i++) {
+                        System.out.print(da_weight[i] + " ");
+                    }
+                    System.out.println();
+                    */
+
+                    //CSP Variable Objects
+                    //Packages - To Be Assigned a DA
+                    //Tot_Dist - Total Distance of All Paths
+
+                    //CSP Constraints
+                    //Total Weight of Packages Assigned to a Truck Must Not Outweigh it's Capacity
+
+                    //TODO: Figure out how to get the solver to order the packages efficiently
+
+
+                    //TODO: Replace Dummy Data with CSP Solver
                     Inventory i1 = new Inventory();
-                    i1.addItem(item1);
-                    i1.addItem(item2);
-                    i1.addItem(item3);
+                    i1.addItem(masterInventory.getItem(1));
+                    i1.addItem(masterInventory.getItem(2));
+                    i1.addItem(masterInventory.getItem(3));
 
                     Inventory i2 = new Inventory();
-                    i2.addItem(item4);
-                    i2.addItem(item5);
-                    i2.addItem(item6);
+                    i2.addItem(masterInventory.getItem(4));
+                    i2.addItem(masterInventory.getItem(5));
+                    i2.addItem(masterInventory.getItem(6));
 
                     Inventory i3 = new Inventory();
-                    i3.addItem(item7);
-                    i3.addItem(item8);
-                    i3.addItem(item9);
+                    i3.addItem(masterInventory.getItem(7));
+                    i3.addItem(masterInventory.getItem(8));
+                    i3.addItem(masterInventory.getItem(9));
 
                     Path p1 = new Path(new int[]{1,3,5,4,7}, new int[]{4,3,2,5,2});
                     Path p2 = new Path(new int[]{6,1,2,9}, new int[]{2,5,3,1});
@@ -206,7 +283,7 @@ public class MasterRoutingAgent extends Agent {
                     Path[] paths = {p1, p2, p3};
                     Inventory[] inventories = {i1, i2, i3};
 
-                    int i = 0;
+                    i = 0;
                     for(AgentData agent: agents) {
                         agent.setJsonInventory(inventories[i].serialize());
                         agent.setJsonPath(paths[i].serialize());

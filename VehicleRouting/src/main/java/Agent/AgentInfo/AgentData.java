@@ -19,7 +19,8 @@ public class AgentData {
 
     //Simple way of matching this data with an AID, if iterating through a list of these objects
     public boolean matchData(AID a) {
-        return name == a;
+        //TODO: This Might Not Be The Best Solution, And May Create Errors With A Multi-Container System
+        return name.getLocalName().equals(a.getLocalName());
     }
 
     public AID getName() {
