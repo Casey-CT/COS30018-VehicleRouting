@@ -15,6 +15,10 @@ import jade.domain.AMSService;
 import jade.domain.FIPAAgentManagement.*;
 import jade.lang.acl.ACLMessage;
 import jade.lang.acl.MessageTemplate;
+import org.chocosolver.solver.Model;
+import org.chocosolver.solver.Solution;
+import org.chocosolver.solver.Solver;
+import org.chocosolver.solver.variables.IntVar;
 
 import java.util.ArrayList;
 
@@ -57,15 +61,15 @@ public class MasterRoutingAgent extends Agent {
         System.out.println(getAID().getLocalName() + ": I have been created");
 
         //Add Dummy Item Data
-        masterInventory.addItem(new Item(1, "Item1", 2, 1, 1));
-        masterInventory.addItem(new Item(2, "Item2", 5, 4, 1));
-        masterInventory.addItem(new Item(3, "Item3", 7, 2, 1));
-        masterInventory.addItem(new Item(4, "Item4", 6, 1, 1));
-        masterInventory.addItem(new Item(5, "Item5", 1, 3, 1));
-        masterInventory.addItem(new Item(6, "Item6", 9, 1, 1));
-        masterInventory.addItem(new Item(7, "Item7", 3, 6, 1));
-        masterInventory.addItem(new Item(8, "Item8", 3, 4, 1));
-        masterInventory.addItem(new Item(9, "Item9", 6, 2, 1));
+        masterInventory.addItem(new Item(1, "Item1", 2, 12, 1));
+        masterInventory.addItem(new Item(2, "Item2", 5, 50, 1));
+        masterInventory.addItem(new Item(3, "Item3", 7, 12, 1));
+        masterInventory.addItem(new Item(4, "Item4", 6, 11, 1));
+        masterInventory.addItem(new Item(5, "Item5", 1, 2, 1));
+        masterInventory.addItem(new Item(6, "Item6", 9, 11, 1));
+        masterInventory.addItem(new Item(7, "Item7", 3, 16, 1));
+        masterInventory.addItem(new Item(8, "Item8", 3, 12, 1));
+        masterInventory.addItem(new Item(9, "Item9", 6, 20, 1));
 
         try{
             Thread.sleep(5000);
@@ -154,7 +158,6 @@ public class MasterRoutingAgent extends Agent {
 
                         if(capacity_response.getPerformative() == ACLMessage.INFORM) {
                             for (AgentData agent: agents) {
-                                System.out.println(agent.getName().toString() + " - " + capacity_response.getSender().toString() + " - " + capacity_response.getContent());
                                 if(agent.matchData(capacity_response.getSender())) {
                                     agent.setCapacity(Integer.parseInt(capacity_response.getContent()));
                                 }
@@ -184,6 +187,7 @@ public class MasterRoutingAgent extends Agent {
                 case 2:
                     System.out.println(getLocalName() + ": Allocating Inventories and Paths to Each Delivery Agent");
 
+                    /*
                     //TODO: Finish Working CSP Solver
                     //Data to Give CSP Solver
                     //Number of Items
@@ -247,17 +251,34 @@ public class MasterRoutingAgent extends Agent {
                         System.out.print(da_weight[i] + " ");
                     }
                     System.out.println();
-                    */
+
+                    //CSP Model
+                    Model model = new Model("Vehicle Routing Solver");
 
                     //CSP Variable Objects
                     //Packages - To Be Assigned a DA
+                    IntVar[] packages = model.intVarArray("packages", N, da[0], da[da.length - 1], false);
+                    IntVar[] tot_weights = model.intVarArray("Total Weights", da.length, 0, Integer.MAX_VALUE, true);
+
                     //Tot_Dist - Total Distance of All Paths
 
                     //CSP Constraints
+
                     //Total Weight of Packages Assigned to a Truck Must Not Outweigh it's Capacity
+                    for(i = 0; i < da.length; i++) {
 
+                        model.arithm(tot_weights[i].getValue(), "<=", da_weight[i]).post();
+                    }
+
+                    //CSP Solver
                     //TODO: Figure out how to get the solver to order the packages efficiently
+                    Solver solver = model.getSolver();
 
+                    while(solver.solve()) {
+                        Solution solution = solver.findSolution();
+                        System.out.println(solution.toString());
+                    }
+                    */
 
                     //TODO: Replace Dummy Data with CSP Solver
                     Inventory i1 = new Inventory();
@@ -283,7 +304,7 @@ public class MasterRoutingAgent extends Agent {
                     Path[] paths = {p1, p2, p3};
                     Inventory[] inventories = {i1, i2, i3};
 
-                    i = 0;
+                    int i = 0;
                     for(AgentData agent: agents) {
                         agent.setJsonInventory(inventories[i].serialize());
                         agent.setJsonPath(paths[i].serialize());
