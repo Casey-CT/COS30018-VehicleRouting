@@ -8,6 +8,7 @@ import Item.Inventory;
 import Item.Item;
 import jade.core.Agent;
 import jade.core.behaviours.Behaviour;
+import jade.core.behaviours.CyclicBehaviour;
 import jade.domain.AMSService;
 import jade.domain.FIPAAgentManagement.AMSAgentDescription;
 import jade.domain.FIPAAgentManagement.SearchConstraints;
@@ -82,7 +83,75 @@ public class MasterRoutingAgent extends Agent {
     private int[][] mapData;
     private ArrayList<Path> paths = new ArrayList<>();
 
+    private class ListenForMessages extends CyclicBehaviour {
+        public void action() {
+
+            ACLMessage msg = myAgent.receive();
+
+            if (msg != null) {
+                System.out.println(myAgent.getLocalName() + ": Message Received");
+
+                String messageContent = msg.getContent();
+
+                if(msg.getPerformative() == ACLMessage.INFORM) {
+                    String[] splitContent = messageContent.split(":", 2);
+
+                    if(splitContent[0].equals(Message.ARRIVE)) {
+                        boolean set = false;
+                        for (AgentData agent: agents) {
+                            if(agent.matchData(msg.getSender())) {
+                                try{
+                                    agent.setCurrentLocation(Integer.parseInt(splitContent[1]));
+                                    System.out.println(myAgent.getLocalName() + ": " + agent.getName().getLocalName() + " has arrived at " + splitContent[1]);
+                                    set = true;
+                                } catch(Exception ex) {
+                                    ex.printStackTrace();
+                                }
+                            }
+                        }
+                        if(!set) {
+                            try {
+                                throw new Exception(myAgent.getLocalName() + ": Received Message From Unknown Delivery Agent.");
+                            } catch(Exception ex) {
+                                ex.printStackTrace();
+                            }
+                        }
+                    }
+                    else if(splitContent[0].equals(Message.DELIVERED)) {
+                        boolean set = false;
+                        for (AgentData agent: agents) {
+                            if(agent.matchData(msg.getSender())) {
+                                try{
+                                    set = agent.inventory.removeItem(Integer.parseInt(splitContent[1]));
+                                    System.out.println(myAgent.getLocalName() + ": " + agent.getName().getLocalName() + " has delivered package " + splitContent[1]);
+                                } catch(Exception ex) {
+                                    ex.printStackTrace();
+                                }
+                            }
+                        }
+                        if(!set) {
+                            try {
+                                throw new Exception(myAgent.getLocalName() + ": Received Message From Unknown Delivery Agent.");
+                            } catch(Exception ex) {
+                                ex.printStackTrace();
+                            }
+                        }
+                    }
+                    else if(msg.getPerformative() == ACLMessage.FAILURE) {
+                        try {
+                            throw new Exception(myAgent.getLocalName() + ": " + msg.getSender().getLocalName() + " has run into an error.");
+                        } catch(Exception ex) {
+                            ex.printStackTrace();
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     private class processRoutes extends Behaviour {
+        //Number of expected replies
+        private int expReplies = 0;
 
         //Number of received replies
         private int replyCount = 0;
@@ -112,6 +181,8 @@ public class MasterRoutingAgent extends Agent {
                     } catch (Exception ex) {
                         System.out.println(myAgent.getLocalName() + ": AMS ERROR while Finding Delivery Agents" + ex );
                         ex.printStackTrace();
+                        System.out.println(myAgent.getLocalName() + ": An Error Has Occurred. Stopping this behaviour");
+                        done = true;
                     }
 
                     //TODO: Find a more reliable solution for this
@@ -133,7 +204,7 @@ public class MasterRoutingAgent extends Agent {
                         for(AgentData agent: agents) {
                             capacity_request.addReceiver(agent.getName());
                         }
-                        capacity_request.setContent(Message.CAPACITY);
+                        capacity_request.setContent(Message.STATUS);
                         capacity_request.setConversationId("processRoute");
                         capacity_request.setReplyWith("Request" + System.currentTimeMillis());
                         myAgent.send(capacity_request);
@@ -141,6 +212,7 @@ public class MasterRoutingAgent extends Agent {
                         mt = MessageTemplate.and(MessageTemplate.MatchConversationId("processRoute"), MessageTemplate.MatchInReplyTo(capacity_request.getReplyWith()));
 
                         System.out.println(getLocalName() + ": Capacity Request Send to All Delivery Agents");
+                        expReplies = agents.size();
 
                         step = 1;
                     }
@@ -159,7 +231,10 @@ public class MasterRoutingAgent extends Agent {
                         if(capacity_response.getPerformative() == ACLMessage.INFORM) {
                             for (AgentData agent: agents) {
                                 if(agent.matchData(capacity_response.getSender())) {
-                                    agent.setCapacity(Integer.parseInt(capacity_response.getContent()));
+                                    String[] splitContent = capacity_response.getContent().split(",", 2);
+                                    agent.setCapacity(Integer.parseInt(splitContent[0]));
+                                    agent.setCurrentLocation(Integer.parseInt(splitContent[1]));
+                                    System.out.println(myAgent.getLocalName() + ": " + agent.getName().getLocalName() + " - Capacity " + agent.getCapacity() + " - CurrentLocation " + agent.getCurrentLocation());
                                 }
                             }
                         }
@@ -168,12 +243,14 @@ public class MasterRoutingAgent extends Agent {
                                 throw new Exception(myAgent.getLocalName() + ": ERROR - " + capacity_response.getSender().toString() + " supplied an invalid capacity");
                             } catch (Exception ex){
                                 ex.printStackTrace();
+                                System.out.println(myAgent.getLocalName() + ": An Error Has Occurred. Stopping this behaviour");
+                                done = true;
                             }
                         }
 
                         replyCount++;
-                        System.out.println(getLocalName() + ": Received " + replyCount + " replies out of " + agents.size());
-                        if(replyCount >= agents.size()) {
+                        System.out.println(getLocalName() + ": Received " + replyCount + " replies out of " + expReplies);
+                        if(replyCount >= expReplies) {
                             replyCount = 0;
                             step = 2;
                         }
@@ -304,11 +381,19 @@ public class MasterRoutingAgent extends Agent {
                     Path[] paths = {p1, p2, p3};
                     Inventory[] inventories = {i1, i2, i3};
 
-                    int i = 0;
-                    for(AgentData agent: agents) {
-                        agent.setJsonInventory(inventories[i].serialize());
-                        agent.setJsonPath(paths[i].serialize());
-                        i++;
+                    //Enable for Testing if DA handles having more agents than it needs
+                    boolean tooManyAgents = true;
+                    if(tooManyAgents) {
+                        agents.get(0).setJsonInventory(inventories[0].serialize());
+                        agents.get(0).setJsonPath(paths[0].serialize());
+                    }
+                    else {
+                        int i = 0;
+                        for(AgentData agent: agents) {
+                            agent.setJsonInventory(inventories[i].serialize());
+                            agent.setJsonPath(paths[i].serialize());
+                            i++;
+                        }
                     }
 
                     System.out.println(getLocalName() + ": Inventories and Paths Created and Assigned");
@@ -328,15 +413,12 @@ public class MasterRoutingAgent extends Agent {
                             myAgent.send(inventory_add);
                         }
                         else {
-                            try {
-                                throw new Exception(myAgent.getLocalName() + ": ERROR - " + agent.getName().toString() + " has an empty json inventory string");
-                            } catch (Exception ex) {
-                                ex.printStackTrace();
-                            }
+                            System.out.println(getLocalName() + ": " + agent.getName() + " has been given no items to deliver.");
+                            expReplies--;
                         }
                     }
 
-                    System.out.println(getLocalName() + ": Inventories Sent to Each Delivery Agent");
+                    System.out.println(getLocalName() + ": Inventories Sent to Delivery Agents");
 
                     step = 3;
 
@@ -350,18 +432,32 @@ public class MasterRoutingAgent extends Agent {
 
                         if(inventory_response.getPerformative() == ACLMessage.INFORM) {
                             for (AgentData agent: agents) {
-                                if(agent.matchData(inventory_response.getSender())) {
-                                    //Set the inventory in AgentData Object here, but we don't need to do anything in here for now.
-                                }
-                            }
-                            if(inventory_response.getContent().equals(Message.INVENTORY_SUCCESS)) {
-                                //Do Nothing, this is what we want
-                            }
-                            else if(inventory_response.getContent().equals(Message.INVENTORY_FAILURE)) {
-                                try {
-                                    throw new Exception(myAgent.getLocalName() + ": ERROR - " + inventory_response.getSender().toString() + " could not load supplied inventory");
-                                } catch (Exception ex) {
-                                    ex.printStackTrace();
+                                if (agent.matchData(inventory_response.getSender())) {
+                                    if(inventory_response.getContent().equals(Message.INVENTORY_SUCCESS)) {
+                                        //Set the local copy of the agents inventory
+                                        agent.inventory.addInventory(Inventory.deserialize(agent.getJsonInventory()));
+                                        for(Item item: agent.inventory.getItems()) {
+                                            //Remove each item given to the agent from the master inventory
+                                            if(!masterInventory.removeItem(item.getId())) {
+                                                try{
+                                                    throw new Exception(myAgent.getLocalName() + ": ERROR - " + inventory_response.getSender().toString() + " has been given an item not from the master inventory");
+                                                } catch (Exception ex) {
+                                                    ex.printStackTrace();
+                                                    System.out.println(myAgent.getLocalName() + ": An Error Has Occurred. Stopping this behaviour");
+                                                    done = true;
+                                                }
+                                            }
+                                        }
+                                    }
+                                    else if(inventory_response.getContent().equals(Message.INVENTORY_FAILURE)) {
+                                        try {
+                                            throw new Exception(myAgent.getLocalName() + ": ERROR - " + inventory_response.getSender().toString() + " could not load supplied inventory");
+                                        } catch (Exception ex) {
+                                            ex.printStackTrace();
+                                            System.out.println(myAgent.getLocalName() + ": An Error Has Occurred. Stopping this behaviour");
+                                            done = true;
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -370,13 +466,15 @@ public class MasterRoutingAgent extends Agent {
                                 throw new Exception(myAgent.getLocalName() + ": ERROR - " + inventory_response.getSender().toString() + " replied with incorrect performative");
                             } catch (Exception ex){
                                 ex.printStackTrace();
+                                System.out.println(myAgent.getLocalName() + ": An Error Has Occurred. Stopping this behaviour");
+                                done = true;
                             }
                         }
 
                         replyCount++;
-                        System.out.println(getLocalName() + ": Received " + replyCount + " Responses out of " + agents.size());
+                        System.out.println(getLocalName() + ": Received " + replyCount + " Responses out of " + expReplies);
 
-                        if(replyCount >= agents.size()) {
+                        if(replyCount >= expReplies) {
                             replyCount = 0;
                             step = 4;
                         }
@@ -398,18 +496,11 @@ public class MasterRoutingAgent extends Agent {
 
                     //Send Inventory to Each Agent
                     for(AgentData agent: agents) {
-                        if(!agent.getJsonInventory().isEmpty()) {
+                        if(!agent.getJsonPath().isEmpty()) {
                             path_add.clearAllReceiver();
                             path_add.addReceiver(agent.getName());
                             path_add.setContent(Message.PATH + ":" + agent.getJsonPath());
                             myAgent.send(path_add);
-                        }
-                        else {
-                            try {
-                                throw new Exception(myAgent.getLocalName() + ": ERROR - " + agent.getName().toString() + " has an empty json path string");
-                            } catch (Exception ex) {
-                                ex.printStackTrace();
-                            }
                         }
                     }
 
@@ -438,6 +529,8 @@ public class MasterRoutingAgent extends Agent {
                                     throw new Exception(myAgent.getLocalName() + ": ERROR - " + path_response.getSender().toString() + " could not load supplied path");
                                 } catch (Exception ex) {
                                     ex.printStackTrace();
+                                    System.out.println(myAgent.getLocalName() + ": An Error Has Occurred. Stopping this behaviour");
+                                    done = true;
                                 }
                             }
                         }
@@ -446,13 +539,15 @@ public class MasterRoutingAgent extends Agent {
                                 throw new Exception(myAgent.getLocalName() + ": ERROR - " + path_response.getSender().toString() + " replied with incorrect performative");
                             } catch (Exception ex){
                                 ex.printStackTrace();
+                                System.out.println(myAgent.getLocalName() + ": An Error Has Occurred. Stopping this behaviour");
+                                done = true;
                             }
                         }
 
                         replyCount++;
-                        System.out.println(getLocalName() + ": Received " + replyCount + " Replies out of " + agents.size());
+                        System.out.println(getLocalName() + ": Received " + replyCount + " Replies out of " + expReplies);
 
-                        if(replyCount >= agents.size()) {
+                        if(replyCount >= expReplies) {
                             replyCount = 0;
                             step = 6;
                         }
@@ -468,15 +563,22 @@ public class MasterRoutingAgent extends Agent {
                     //Tell all DAs to Start
                     ACLMessage start = new ACLMessage(ACLMessage.REQUEST);
                     for(AgentData agent: agents) {
-                        start.addReceiver(agent.getName());
+                        //Only tell agent to start if agent has items to deliver
+                        if(!agent.inventory.isEmpty()) {
+                            start.addReceiver(agent.getName());
+                        }
                     }
                     start.setContent(Message.START);
                     myAgent.send(start);
 
-                    System.out.println(getLocalName() + ": All Delivery Agents Requested to Start");
+                    System.out.println(getLocalName() + ": Delivery Agents Requested to Start");
 
                     done = true;
-                    
+
+                    //This Behaviour Has Finished, So start processing regular messages
+                    //If this behaviour ever has to be rerun, remove the ListenForMessages behaviour
+                    addBehaviour(new ListenForMessages());
+
                     break;
 
                 default:

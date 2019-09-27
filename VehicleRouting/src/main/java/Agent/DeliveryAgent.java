@@ -58,7 +58,19 @@ public class DeliveryAgent extends Agent {
 
     //Reusable function for sending a message to master agent
     protected void messageMaster(int performative, String content) {
-
+        if(MRA_ID != null) {
+            ACLMessage message = new ACLMessage(performative);
+            message.addReceiver(MRA_ID);
+            message.setContent(content);
+            send(message);
+        }
+        else {
+            try{
+                throw new Exception(getLocalName() + ": MRA_ID has not yet been allocated");
+            } catch(Exception ex) {
+                ex.printStackTrace();
+            }
+        }
     }
 
     protected void takeDown() {
@@ -123,14 +135,14 @@ public class DeliveryAgent extends Agent {
                     else
                         throw new IllegalArgumentException(myAgent.getLocalName() + ": Received Wrong message type");
                 } else if(msg.getPerformative() == ACLMessage.REQUEST) {
-                    if(messageContent.equals(Message.CAPACITY)) {
-                        System.out.println(myAgent.getLocalName() + ": Received Capacity Request");
+                    if(messageContent.equals(Message.STATUS)) {
+                        System.out.println(myAgent.getLocalName() + ": Received Status Request");
 
                         ACLMessage reply = msg.createReply();
                         reply.setPerformative(ACLMessage.INFORM);
-                        reply.setContent(Integer.toString(capacity));
+                        reply.setContent(capacity + "," + currentLocation);
                         send(reply);
-                        System.out.println(myAgent.getLocalName() + ": Sending Capacity Message");
+                        System.out.println(myAgent.getLocalName() + ": Sending Status Message");
                     }
 
                     else if(messageContent.equals(Message.START)) {
@@ -169,14 +181,12 @@ public class DeliveryAgent extends Agent {
                         System.out.println(getLocalName() + ": Items Were Added.\n" + inventory.listItems());
                         reply.setContent(Message.INVENTORY_SUCCESS);
                         send(reply);
-                        //TODO: Add Message to Master Agent
                         return true;
                     }
                     else {
                         System.out.println(getLocalName() + ": No Items Were Added.");
                         reply.setContent(Message.INVENTORY_FAILURE);
                         send(reply);
-                        //TODO: Add Message to Master Agent
                         return false;
                     }
                 }
@@ -184,7 +194,6 @@ public class DeliveryAgent extends Agent {
                     System.out.println(getLocalName() + ": Supplied Inventory Exceeded Capacity.");
                     reply.setContent(Message.INVENTORY_FAILURE);
                     send(reply);
-                    //TODO: Add Message to Master Agent
                     return false;
                 }
             }
@@ -192,7 +201,6 @@ public class DeliveryAgent extends Agent {
                 System.out.println(getLocalName() + ": Supplied Inventory was Empty.");
                 reply.setContent(Message.INVENTORY_FAILURE);
                 send(reply);
-                //TODO: Add Message to Master Agent
                 return false;
             }
         }
@@ -244,11 +252,14 @@ public class DeliveryAgent extends Agent {
                     System.out.println(myAgent.getLocalName() + ": Delivering Item " + i + " at Location " + getCurrentLocation());
                     if(inventory.removeItem(i)) {
                         System.out.println(myAgent.getLocalName() + ": Item " + i + " Delivered at Location " + getCurrentLocation());
-                        //TODO: Add Message to Master Router
+                        messageMaster(ACLMessage.INFORM, Message.DELIVERED + ":" + i);
+                        if(inventory.isEmpty()) {
+                            System.out.println(myAgent.getLocalName() + ": No Items Remaining. Returning to Depot");
+                        }
                     }
                     else {
                         System.out.println(myAgent.getLocalName() + ": ERROR - Item " + i + " Not Delivered at Location " + getCurrentLocation());
-                        //TODO: Add Message to Master Router, probably error handle too.
+                        messageMaster(ACLMessage.FAILURE, Message.ERROR);
                     }
                 }
             }
@@ -279,12 +290,12 @@ public class DeliveryAgent extends Agent {
                         currentLocation = l;
                         myAgent.addBehaviour(new onArrival());
                         System.out.println(myAgent.getLocalName() + ": Arrived At " + l);
+                        messageMaster(ACLMessage.INFORM, Message.ARRIVE + ":" + currentLocation);
                     }
                 });
                 System.out.println(myAgent.getLocalName() + ": Travelling to " + l);
             }
             else {
-                //TODO: Message Master Agent
                 System.out.println(myAgent.getLocalName() + ": PATH COMPLETE");
                 takeDown();
             }
