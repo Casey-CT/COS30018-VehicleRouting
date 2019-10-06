@@ -1,1 +1,1 @@
-http://10.1.52.220:7778/acc
+http://DESKTOP-272SA43.lan:7778/acc

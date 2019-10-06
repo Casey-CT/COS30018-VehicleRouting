@@ -19,9 +19,12 @@ import jade.lang.acl.MessageTemplate;
 import org.chocosolver.solver.Model;
 import org.chocosolver.solver.Solution;
 import org.chocosolver.solver.Solver;
+import org.chocosolver.solver.variables.BoolVar;
 import org.chocosolver.solver.variables.IntVar;
+import org.chocosolver.util.tools.ArrayUtils;
 
 import java.util.ArrayList;
+import java.util.stream.IntStream;
 
 public class MasterRoutingAgent extends Agent {
     private ArrayList<AgentData> agents = new ArrayList<>();
@@ -264,41 +267,44 @@ public class MasterRoutingAgent extends Agent {
                 case 2:
                     System.out.println(getLocalName() + ": Allocating Inventories and Paths to Each Delivery Agent");
 
-                    /*
+
                     //TODO: Finish Working CSP Solver
                     //Data to Give CSP Solver
                     //Number of Items
-                    int N = masterInventory.getLength();
+                    int P = masterInventory.getLength();
 
                     //Node ID of each Items destination
                     int[] dest = new int[masterInventory.getLength()];
-                    int i = 0;
+                    int temp = 0;
                     for(Item item: masterInventory.getItems()) {
-                        dest[i] = item.getDestination();
-                        i++;
+                        dest[temp] = item.getDestination();
+                        temp++;
                     }
 
                     //Each Items Weight Variable
                     int[] weight = new int[masterInventory.getLength()];
-                    i = 0;
+                    temp = 0;
                     for(Item item: masterInventory.getItems()) {
-                        weight[i] = item.getWeight();
-                        i++;
+                        weight[temp] = item.getWeight();
+                        temp++;
                     }
+
+                    //Number of Delivery Agents
+                    int D = agents.size();
 
                     //Int ID of each Delivery agent. Would correspond to agent's index in the agents ArrayList
                     //This might not work, but I think this should be fine
                     int[] da = new int[agents.size()];
-                    for(i = 0; i < agents.size(); i++) {
-                        da[i] = i;
+                    for(temp = 0; temp < agents.size(); temp++) {
+                        da[temp] = temp;
                     }
 
                     //Carrying Capacity of each Delivery Agent
-                    int[] da_weight = new int[agents.size()];
-                    i = 0;
+                    int[] da_capacity = new int[agents.size()];
+                    temp = 0;
                     for(AgentData agent: agents) {
-                        da_weight[i] = agent.getCapacity();
-                        i++;
+                        da_capacity[temp] = agent.getCapacity();
+                        temp++;
                     }
 
                     //Map of Shortest Distances Between Each Node
@@ -328,34 +334,48 @@ public class MasterRoutingAgent extends Agent {
                         System.out.print(da_weight[i] + " ");
                     }
                     System.out.println();
+                    */
 
-                    //CSP Model
                     Model model = new Model("Vehicle Routing Solver");
 
-                    //CSP Variable Objects
-                    //Packages - To Be Assigned a DA
-                    IntVar[] packages = model.intVarArray("packages", N, da[0], da[da.length - 1], false);
-                    IntVar[] tot_weights = model.intVarArray("Total Weights", da.length, 0, Integer.MAX_VALUE, true);
-
-                    //Tot_Dist - Total Distance of All Paths
-
-                    //CSP Constraints
-
-                    //Total Weight of Packages Assigned to a Truck Must Not Outweigh it's Capacity
-                    for(i = 0; i < da.length; i++) {
-
-                        model.arithm(tot_weights[i].getValue(), "<=", da_weight[i]).post();
+                    //Variables
+                    BoolVar[][] Packages = new BoolVar[P][D];
+                    for(int i = 0; i < P; i++) {
+                        for(int j = 0; j < D; j++) {
+                            Packages[i][j] = model.boolVar("Package " + i + " - DA " + j + ": ");
+                        }
                     }
 
-                    //CSP Solver
-                    //TODO: Figure out how to get the solver to order the packages efficiently
+                    //Constraints
+                    for(int i = 0; i < P; i++) {
+                        model.sum(Packages[i], "=", 1).post();
+                    }
+
+                    for(int i = 0; i < D; i++) {
+                        BoolVar[] column = new BoolVar[P];
+                        for(int j = 0; j < P; j++) {
+                            column[j] = Packages[j][i];
+                        }
+                        model.sum(column, "=", 3).post();
+                    }
+
+                    //The Solver
                     Solver solver = model.getSolver();
-
-                    while(solver.solve()) {
-                        Solution solution = solver.findSolution();
-                        System.out.println(solution.toString());
+                    Solution solution = solver.findSolution();
+                    for(int i = 0; i < D; i++) {
+                        System.out.print("Delivery Agent 1: ");
+                        for(int j = 0; j < P; j++) {
+                            System.out.print( " Package " + j + " - ");
+                            if(solution.getIntVal(Packages[j][i]) == 1) {
+                                System.out.print("Y");
+                            }
+                            else {
+                                System.out.print("N");
+                            }
+                        }
+                        System.out.println(".");
                     }
-                    */
+
 
                     //TODO: Replace Dummy Data with CSP Solver
                     Inventory i1 = new Inventory();
@@ -382,7 +402,7 @@ public class MasterRoutingAgent extends Agent {
                     Inventory[] inventories = {i1, i2, i3};
 
                     //Enable for Testing if DA handles having more agents than it needs
-                    boolean tooManyAgents = true;
+                    boolean tooManyAgents = false;
                     if(tooManyAgents) {
                         agents.get(0).setJsonInventory(inventories[0].serialize());
                         agents.get(0).setJsonPath(paths[0].serialize());
