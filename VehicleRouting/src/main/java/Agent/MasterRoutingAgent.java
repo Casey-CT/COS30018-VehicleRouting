@@ -346,6 +346,11 @@ public class MasterRoutingAgent extends Agent {
                         }
                     }
 
+                    IntVar[] Tot_Weights = new IntVar[D];
+                    for(int i = 0; i < D; i++) {
+                        Tot_Weights[i] = model.intVar("DA " + i + "Capacity", 0, IntVar.MAX_INT_BOUND);
+                    }
+
                     //Constraints
                     for(int i = 0; i < P; i++) {
                         model.sum(Packages[i], "=", 1).post();
@@ -356,14 +361,19 @@ public class MasterRoutingAgent extends Agent {
                         for(int j = 0; j < P; j++) {
                             column[j] = Packages[j][i];
                         }
-                        model.sum(column, "=", 3).post();
+                        model.scalar(column, weight, "=", Tot_Weights[i]).post();
+                        model.arithm(Tot_Weights[i], "<=", da_capacity[i]).post();
+
+                        //This constraint limits the number of packages a DA can be assigned to 3.
+                        //If we want to implement limits on the number of packages a DA can hold, we can replace the three with a value pertaining to each DA
+                        //model.sum(column, "=", 3).post();
                     }
 
                     //The Solver
                     Solver solver = model.getSolver();
                     Solution solution = solver.findSolution();
                     for(int i = 0; i < D; i++) {
-                        System.out.print("Delivery Agent 1: ");
+                        System.out.print("Delivery Agent " + i + ": ");
                         for(int j = 0; j < P; j++) {
                             System.out.print( " Package " + j + " - ");
                             if(solution.getIntVal(Packages[j][i]) == 1) {
@@ -373,7 +383,7 @@ public class MasterRoutingAgent extends Agent {
                                 System.out.print("N");
                             }
                         }
-                        System.out.println(".");
+                        System.out.println( " Total Weight: " + solution.getIntVal(Tot_Weights[i]) + ".");
                     }
 
 
