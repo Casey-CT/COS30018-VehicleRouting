@@ -1,3 +1,4 @@
+import java.util.ArrayList;
 import java.util.Random;
 import java.util.Scanner;
 import java.util.concurrent.ThreadLocalRandom;
@@ -8,10 +9,15 @@ public class GraphGen {
     private int[][] twoD_array;
     private static final int NO_PARENT = -1;
 
+    private static int[][] mapDist;
+    private static int[][][] mapPath;
+
     public GraphGen(int v)
     {
         vertices = v + 1;
         twoD_array = new int[vertices][vertices];
+        mapDist = new int[vertices][vertices];
+        mapPath = new int[vertices][vertices][];
     }
     public void makeEdge(int to, int from, int edge)
     {
@@ -118,14 +124,27 @@ public class GraphGen {
 
     private static void printSolution(int startVertex, int endVertex, int[] distances, int[] parents) {
         int nVertices = distances.length - 1;
+
         System.out.println("nVertices: " + nVertices);
         System.out.print("Vertex\t Distance\tPath");
+
+        mapDist[startVertex][endVertex] = distances[endVertex];
 
         System.out.print("\n" + startVertex + " -> " + endVertex + " \t\t " + distances[endVertex] + "\t\t");
         String pathOutput = "";
         pathOutput = printPath(endVertex, parents, pathOutput);
-        System.out.println("PATHOUTPUT: " + pathOutput);
 
+        String[] pathTemp = pathOutput.split(",");
+        int[] path = new int[pathTemp.length];
+        //Iterate from 1, because the delivery agent assumes it is already at the first location.
+        for(int i = 2; i < pathTemp.length; i++) {
+            path[i] = Integer.parseInt(pathTemp[i]);
+        }
+        mapPath[startVertex][endVertex] = path;
+
+        for(int i = 2; i< pathTemp.length; i++){
+            System.out.println("MAP PATH " + i + ": " + mapPath[startVertex][endVertex][i]);
+        }
     }
 
     // Function to print shortest path
@@ -138,8 +157,8 @@ public class GraphGen {
             return "";
         }
         pathOutput = printPath(parents[currentVertex], parents, pathOutput);
-        pathOutput += (" " + String.valueOf(currentVertex));
-        System.out.print(currentVertex + " ");
+        pathOutput += ("," + String.valueOf(currentVertex));
+        //System.out.print(currentVertex + " ");
         return pathOutput;
     }
 
@@ -200,7 +219,6 @@ public class GraphGen {
 
         System.out.println("Minimum Spanning Tree: ");
         for (int i = 1; i <vertices; i++) {
-            //System.out.println("Edge: " + i + " - " + resultSet[i].parent + " key: " + resultSet[i].weight);
             total_min_weight += resultSet[i].weight;
         }
         System.out.println("Total minimum key: " + total_min_weight);
@@ -252,7 +270,6 @@ public class GraphGen {
             dRand = ThreadLocalRandom.current().nextInt(dMin, dMax + 1);
             if (vTo != vFrom) {
                 graphTemp.makeEdge(vTo, vFrom, dRand);
-                //System.out.println("Make Edge: " + vTo + "-" + vFrom + "-" + dRand);
                 count++;
             }
         }
@@ -263,7 +280,6 @@ public class GraphGen {
     public static void main(String args[]) {
         int v, dMin, dMax, eMin, eMax, sourceDijk, destDijk;
         boolean disGraph = true;
-        boolean runDijk = true;
         Random r = new Random();
         Scanner sc = new Scanner(System.in);
         GraphGen graph = null;
@@ -315,22 +331,10 @@ public class GraphGen {
                         System.out.print(graph.getEdge(i, j) + ", ");
                     }
             }
-            while(runDijk){
-                System.out.println("Enter the source node: ");
-                sourceDijk = sc.nextInt();
-                if (sourceDijk > v){
-                    runDijk = false;
-                    System.out.println("Exiting");
-                    break;
+            for(int i = 1; i <= v; i++){
+                for(int j = 1; j <= v; j++){
+                    dijkstra(graph.twoD_array, i, j);
                 }
-                System.out.println("Enter the destination node: ");
-                destDijk = sc.nextInt();
-                if (destDijk > v){
-                    runDijk = false;
-                    System.out.println("Exiting");
-                    break;
-                }
-                dijkstra(graph.twoD_array, sourceDijk, destDijk);
             }
         } catch (Exception E) {
             System.out.println("Something went wrong");
