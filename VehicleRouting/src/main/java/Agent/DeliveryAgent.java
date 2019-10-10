@@ -58,7 +58,19 @@ public class DeliveryAgent extends Agent {
 
     //Reusable function for sending a message to master agent
     protected void messageMaster(int performative, String content) {
-
+        if(MRA_ID != null) {
+            ACLMessage message = new ACLMessage(performative);
+            message.addReceiver(MRA_ID);
+            message.setContent(content);
+            send(message);
+        }
+        else {
+            try{
+                throw new Exception(getLocalName() + ": MRA_ID has not yet been allocated");
+            } catch(Exception ex) {
+                ex.printStackTrace();
+            }
+        }
     }
 
     protected void takeDown() {
@@ -94,41 +106,50 @@ public class DeliveryAgent extends Agent {
                     reply.setPerformative(ACLMessage.INFORM);
 
                     if(jsonMessage[0].equals(Inventory.INVENTORY)) {
+                        System.out.println(myAgent.getLocalName() + ": Received New Inventory Message");
+
                         if(loadInventory(jsonMessage[1])) {
                             reply.setContent(Message.INVENTORY_SUCCESS);
                             send(reply);
-                            System.out.println(myAgent.getLocalName() + ": Sending Message");
+                            System.out.println(myAgent.getLocalName() + ": Sending Inventory Success Message");
                         } else {
                             reply.setContent(Message.INVENTORY_FAILURE);
                             send(reply);
-                            System.out.println(myAgent.getLocalName() + ": Sending Message");
+                            System.out.println(myAgent.getLocalName() + ": Sending Inventory Failure Message");
                         }
                     }
 
                     else if(jsonMessage[0].equals(Path.PATH)) {
+                        System.out.println(myAgent.getLocalName() + ": Received New Path Message");
+
                         if(loadPath(jsonMessage[1])) {
                             reply.setContent(Message.PATH_SUCCESS);
                             send(reply);
-                            System.out.println(myAgent.getLocalName() + ": Sending Message");
+                            System.out.println(myAgent.getLocalName() + ": Sending Path Success Message");
                         } else {
                             reply.setContent(Message.PATH_FAILURE);
                             send(reply);
-                            System.out.println(myAgent.getLocalName() + ": Sending Message");
+                            System.out.println(myAgent.getLocalName() + ": Sending Path Failure Message");
                         }
                     }
                     else
-                        throw new IllegalArgumentException("Wrong message type");
+                        throw new IllegalArgumentException(myAgent.getLocalName() + ": Received Wrong message type");
                 } else if(msg.getPerformative() == ACLMessage.REQUEST) {
-                    if(messageContent.equals(Message.CAPACITY)) {
+                    if(messageContent.equals(Message.STATUS)) {
+                        System.out.println(myAgent.getLocalName() + ": Received Status Request");
+
                         ACLMessage reply = msg.createReply();
                         reply.setPerformative(ACLMessage.INFORM);
-                        reply.setContent(Integer.toString(capacity));
+                        reply.setContent(capacity + "," + currentLocation);
                         send(reply);
-                        System.out.println(myAgent.getLocalName() + ": Sending Message");
+                        System.out.println(myAgent.getLocalName() + ": Sending Status Message");
                     }
 
-                    else if(messageContent.equals(Message.START))
+                    else if(messageContent.equals(Message.START)) {
+                        System.out.println(myAgent.getLocalName() + ": Received Start Request");
                         start();
+                    }
+
 
                     else
                         throw new IllegalArgumentException("Wrong message content");
@@ -160,14 +181,12 @@ public class DeliveryAgent extends Agent {
                         System.out.println(getLocalName() + ": Items Were Added.\n" + inventory.listItems());
                         reply.setContent(Message.INVENTORY_SUCCESS);
                         send(reply);
-                        //TODO: Add Message to Master Agent
                         return true;
                     }
                     else {
                         System.out.println(getLocalName() + ": No Items Were Added.");
                         reply.setContent(Message.INVENTORY_FAILURE);
                         send(reply);
-                        //TODO: Add Message to Master Agent
                         return false;
                     }
                 }
@@ -175,7 +194,6 @@ public class DeliveryAgent extends Agent {
                     System.out.println(getLocalName() + ": Supplied Inventory Exceeded Capacity.");
                     reply.setContent(Message.INVENTORY_FAILURE);
                     send(reply);
-                    //TODO: Add Message to Master Agent
                     return false;
                 }
             }
@@ -183,7 +201,6 @@ public class DeliveryAgent extends Agent {
                 System.out.println(getLocalName() + ": Supplied Inventory was Empty.");
                 reply.setContent(Message.INVENTORY_FAILURE);
                 send(reply);
-                //TODO: Add Message to Master Agent
                 return false;
             }
         }
@@ -235,11 +252,14 @@ public class DeliveryAgent extends Agent {
                     System.out.println(myAgent.getLocalName() + ": Delivering Item " + i + " at Location " + getCurrentLocation());
                     if(inventory.removeItem(i)) {
                         System.out.println(myAgent.getLocalName() + ": Item " + i + " Delivered at Location " + getCurrentLocation());
-                        //TODO: Add Message to Master Router
+                        messageMaster(ACLMessage.INFORM, Message.DELIVERED + ":" + i);
+                        if(inventory.isEmpty()) {
+                            System.out.println(myAgent.getLocalName() + ": No Items Remaining. Returning to Depot");
+                        }
                     }
                     else {
                         System.out.println(myAgent.getLocalName() + ": ERROR - Item " + i + " Not Delivered at Location " + getCurrentLocation());
-                        //TODO: Add Message to Master Router, probably error handle too.
+                        messageMaster(ACLMessage.FAILURE, Message.ERROR);
                     }
                 }
             }
@@ -270,12 +290,12 @@ public class DeliveryAgent extends Agent {
                         currentLocation = l;
                         myAgent.addBehaviour(new onArrival());
                         System.out.println(myAgent.getLocalName() + ": Arrived At " + l);
+                        messageMaster(ACLMessage.INFORM, Message.ARRIVE + ":" + currentLocation);
                     }
                 });
                 System.out.println(myAgent.getLocalName() + ": Travelling to " + l);
             }
             else {
-                //TODO: Message Master Agent
                 System.out.println(myAgent.getLocalName() + ": PATH COMPLETE");
                 takeDown();
             }

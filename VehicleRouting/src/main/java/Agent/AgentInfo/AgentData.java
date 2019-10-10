@@ -1,11 +1,13 @@
 package Agent.AgentInfo;
 
+import Item.Inventory;
 import jade.core.AID;
 
 public class AgentData {
     private AID name;
     private int capacity;
     private int currentLocation;
+    public Inventory inventory;
     private String jsonInventory;
     private String jsonPath;
 
@@ -13,13 +15,15 @@ public class AgentData {
         name = a;
         capacity = 0;
         currentLocation = 0;
-        jsonInventory = null;
-        jsonPath = null;
+        inventory = new Inventory();
+        jsonInventory = "";
+        jsonPath = "";
     }
 
     //Simple way of matching this data with an AID, if iterating through a list of these objects
     public boolean matchData(AID a) {
-        return name == a;
+        //TODO: This Might Not Be The Best Solution, And May Create Errors With A Multi-Container System
+        return name.getLocalName().equals(a.getLocalName());
     }
 
     public AID getName() {
