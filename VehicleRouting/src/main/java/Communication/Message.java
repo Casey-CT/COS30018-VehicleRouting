@@ -1,5 +1,6 @@
 package Communication;
 
+//Set of constants, used to make sure messages sent from Agents, and messages that are processed are consistent.
 public class Message {
     public static final String STOP = "STOP";
     public static final String START = "START";
