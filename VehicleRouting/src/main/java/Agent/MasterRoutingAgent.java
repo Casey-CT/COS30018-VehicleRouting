@@ -1,6 +1,5 @@
 package Agent;
 
-
 import Agent.AgentInfo.AgentData;
 import Communication.Message;
 import DeliveryPath.Path;
@@ -17,10 +16,20 @@ import jade.lang.acl.MessageTemplate;
 import org.chocosolver.solver.Model;
 import org.chocosolver.solver.Solution;
 import org.chocosolver.solver.Solver;
+import org.chocosolver.solver.search.limits.FailCounter;
+import org.chocosolver.solver.search.loop.lns.INeighborFactory;
 import org.chocosolver.solver.variables.BoolVar;
 import org.chocosolver.solver.variables.IntVar;
+<<<<<<< HEAD
+import org.chocosolver.util.criteria.Criterion;
+import org.chocosolver.util.tools.ArrayUtils;
+=======
+>>>>>>> 0b2e6dca48d21871d803100f8057163a0df02d15
+
 
 import java.util.ArrayList;
+
+import static org.chocosolver.util.tools.StatisticUtils.sum;
 
 public class MasterRoutingAgent extends Agent {
     //Collection of AgentData Objects, to keep track of the state of each DA this Agent is aware of
@@ -101,15 +110,24 @@ public class MasterRoutingAgent extends Agent {
 
         //TODO: Remove this Dummy Data
         //Dummy Item Data
-        masterInventory.addItem(new Item(1, "Item1", 2, 12, 1));
-        masterInventory.addItem(new Item(2, "Item2", 3, 50, 1));
-        masterInventory.addItem(new Item(3, "Item3", 2, 12, 1));
-        masterInventory.addItem(new Item(4, "Item4", 4, 11, 1));
+        masterInventory.addItem(new Item(1, "Item1", 2, 3, 1));
+        masterInventory.addItem(new Item(2, "Item2", 3, 5, 1));
+        masterInventory.addItem(new Item(3, "Item3", 2, 7, 1));
+        masterInventory.addItem(new Item(4, "Item4", 4, 4, 1));
         masterInventory.addItem(new Item(5, "Item5", 1, 2, 1));
-        masterInventory.addItem(new Item(6, "Item6", 2, 11, 1));
-        masterInventory.addItem(new Item(7, "Item7", 1, 16, 1));
-        masterInventory.addItem(new Item(8, "Item8", 2, 12, 1));
-        masterInventory.addItem(new Item(9, "Item9", 4, 20, 1));
+        masterInventory.addItem(new Item(6, "Item6", 2, 10, 1));
+        masterInventory.addItem(new Item(7, "Item7", 1, 8, 1));
+        masterInventory.addItem(new Item(8, "Item8", 2, 6, 1));
+        masterInventory.addItem(new Item(9, "Item9", 4, 15, 1));
+        masterInventory.addItem(new Item(10, "Item10", 2, 10, 1));
+        masterInventory.addItem(new Item(11, "Item11", 3, 15, 1));
+        masterInventory.addItem(new Item(12, "Item12", 2, 17, 1));
+        masterInventory.addItem(new Item(13, "Item13", 4, 9, 1));
+        masterInventory.addItem(new Item(14, "Item14", 1, 1, 1));
+        masterInventory.addItem(new Item(15, "Item15", 2, 7, 1));
+        masterInventory.addItem(new Item(16, "Item16", 1, 3, 1));
+        masterInventory.addItem(new Item(17, "Item17", 2, 16, 1));
+        masterInventory.addItem(new Item(18, "Item18", 4, 5, 1));
 
         //TODO: Replace this with the GraphGen code
         //Dummy Map Data
@@ -403,10 +421,217 @@ public class MasterRoutingAgent extends Agent {
 
                     //TODO: Terminate here if total weight of packages exceeds total capacity of all delivery agents
 
+<<<<<<< HEAD
+                    //TODO: Expand CSP Solver
+                    //Data to Give CSP Solver
+                    //Number of Items
+                    int P = masterInventory.getLength();
+
+                    //TODO: Find a better solution that moving ints into an arraylist and then streaming
+                    //Node ID of each Items destination
+                    //Not in Use at the moment, but could be useful later on.
+                    int[] dest;
+                    ArrayList<Integer> temp = new ArrayList<>();
+                    for(Item item: masterInventory.getItems()) {
+                        temp.add(item.getDestination());
+                    }
+                    dest = temp.stream().mapToInt(o -> o).toArray();
+                    temp.clear();
+
+                    //Each Items Weight Variable
+                    int[] weight;
+                    for(Item item: masterInventory.getItems()) {
+                        temp.add(item.getWeight());
+                    }
+                    weight = temp.stream().mapToInt(o -> o).toArray();
+                    temp.clear();
+
+                    //Number of Delivery Agents
+                    int D = agents.size();
+
+                    //Carrying Capacity of each Delivery Agent
+                    int[] da_capacity;
+                    for(AgentData agent: agents) {
+                        temp.add(agent.getCapacity());
+                    }
+                    da_capacity = temp.stream().mapToInt(o -> o).toArray();
+                    temp.clear();
+
+                    Model model = new Model("Vehicle Routing Solver");
+
+                    //Variables
+                    //Boolean Variable for Each Combination of Package and DA
+                    //If a variable is true, it means that DA is the delivery agent for that package
+                    //eg; if Packages[i][j] is true, then DA j is delivering Package i
+                    BoolVar[][] Packages = new BoolVar[P][D];
+                    for(int i = 0; i < P; i++) {
+                        for(int j = 0; j < D; j++) {
+                            Packages[i][j] = model.boolVar("Package " + i + " - DA " + j + ": ");
+                        }
+                    }
+
+                    //Int Variable for the total weight of packages assigned to a particular DA.
+                    //eg; Tot_Weights[i] is the total weight of packages assigned to DA i
+                    //The Value of these variables is calculated with a SCALAR constraint
+                    IntVar[] Tot_Weights = new IntVar[D];
+                    for(int i = 0; i < D; i++) {
+                        Tot_Weights[i] = model.intVar("DA " + i + "Capacity", 0, 100);
+                    }
+
+                    IntVar[] LeftOverCapacity = new IntVar[D];
+                    for(int i = 0; i < D; i++) {
+                        LeftOverCapacity[i] = model.intVar("DA " + i + "Left Over Capacity", -100, 100);
+                    }
+
+                    IntVar sum = model.intVar(0, 99999);
+
+                    //Constraints
+                    //Each Package Must Be Assigned Once
+                    for(int i = 0; i < P; i++) {
+                        model.sum(Packages[i], "=", 1).post();
+                    }
+
+                    //The average weight of the parcels is sum of the weights of all the parcels divided by the number of delivery agents
+                    //This is based on the naive assumption that all the DAs have the same capacity (or at least very similar)
+                    int averageWeightPerDA = sum(weight) / D;
+
+                    for(int i = 0; i < D; i++) {
+                        BoolVar[] column = new BoolVar[P];
+                        for(int j = 0; j < P; j++) {
+                            column[j] = Packages[j][i];
+                        }
+                        //This calculates the total weight of packages assigned to DA i
+                        model.scalar(column, weight, "=", Tot_Weights[i]).post();
+
+                        int temp2 = Tot_Weights[i].getValue();
+                        int temp3 = da_capacity[i] - temp2;
+                        LeftOverCapacity[i] = model.intVar(temp3);
+
+                        //This doesn't work, makes no difference to the solution found.
+                        //model.setObjective(true, LeftOverCapacity[i]);
+
+                        //Total Weight of DA i, cannot exceed capacity of DA i
+                        model.arithm(Tot_Weights[i], "<=", da_capacity[i]).post();
+
+                        //NAIVE CONSTRAINT
+                        //For every DA, the sum of its packages weight must be equal or greater than the average
+                        //This gives us a decent solution when all DAs have similar capacity
+                        model.arithm(Tot_Weights[i], ">=", averageWeightPerDA).post();
+
+                        //This constraint limits the number of packages a DA can be assigned to 3.
+                        //If we want to implement limits on the number of packages a DA can hold, we can replace the three with a value pertaining to each DA
+                        //model.sum(column, "=", 3).post();
+                    }
+
+                    //The Solver
+                    //TODO: Expand this code so that:
+                    // More than one solution is looked at
+                    // This behaviour terminates if there is no valid solution
+                    Solver solver = model.getSolver();
+                    solver.showStatistics();
+
+                    Solution solution = solver.findSolution();
+
+                    //This will maximize the left over capacity for any one DA
+//                    while(solver.solve()) {
+//                        solution = solver.findOptimalSolution(LeftOverCapacity[2], true);
+//                    }
+
+                    for(int i = 0; i < D; i++) {
+                        Inventory inv = new Inventory();
+                        //Adding + 1 to i, so that this output matches the DA's LocalNames
+                        System.out.print("Delivery Agent " + (i + 1) + ": ");
+                        for(int j = 0; j < P; j++) {
+                            System.out.print( " Package " + j + " - ");
+                            if(solution.getIntVal(Packages[j][i]) == 1) {
+                                System.out.print("Y");
+                                inv.addItem(masterInventory.getItems().get(j));
+                            }
+                            else {
+                                System.out.print("N");
+                            }
+                        }
+                        System.out.println( " Total Weight: " + solution.getIntVal(Tot_Weights[i]) + ".");
+
+                        //If no packages have been assigned to a DA, then nothing should be assigned to its agentdata
+                        if(!inv.isEmpty()) {
+                            agents.get(i).setJsonInventory(inv.serialize());
+
+                            //TODO: Clean up this code, it is an absolute mess
+                            //Sort Items into Order
+                            System.out.print("Testing Pre Order - ");
+                            for(Item item: inv.getItems()) {
+                                System.out.print(item.getId() + ":" + item.getDestination() + " ");
+                            }
+                            System.out.println();
+
+                            Inventory pathInv = new Inventory();
+
+                            int l = inv.getLength();
+                            int m = -1;
+                            int n = 0;
+
+                            //TODO: Decide if Map Nodes start indexing at 0 or 1.
+                            // This code assumes Nodes start indexing at 0.
+                            for(int j = 0; j < l; j++) {
+                                for(int k = 0; k < inv.getLength(); k++) {
+                                    if(j == 0) {
+                                        if(m == -1) {
+                                            m = mapDist[agents.get(i).getCurrentLocation()][inv.getItems().get(k).getDestination()];
+                                            n = k;
+                                        } else if(mapDist[agents.get(i).getCurrentLocation()][inv.getItems().get(k).getDestination()] < m) {
+                                            m = mapDist[agents.get(i).getCurrentLocation()][inv.getItems().get(k).getDestination()];
+                                            n = k;
+                                        }
+                                    }
+                                    else {
+                                        if(m == -1) {
+                                            m = mapDist[pathInv.getItems().get(j - 1).getDestination()][inv.getItems().get(k).getDestination()];
+                                            n = k;
+                                        } else if(mapDist[pathInv.getItems().get(j - 1).getDestination()][inv.getItems().get(k).getDestination()] < m) {
+                                            m = mapDist[pathInv.getItems().get(j - 1).getDestination()][inv.getItems().get(k).getDestination()];
+                                            n = k;
+                                        }
+                                    }
+                                }
+                                m = -1;
+                                pathInv.addItem(inv.getItems().get(n));
+                                inv.removeItem(inv.getItems().get(n).getId());
+                            }
+
+                            System.out.print("Testing Post Order - ");
+                            for(Item item: pathInv.getItems()) {
+                                System.out.print(item.getId() + ":" + item.getDestination() + " ");
+                            }
+                            System.out.println();
+
+                            //Assemble Locations and Distances
+                            ArrayList<Integer> loc = new ArrayList<>();
+                            ArrayList<Integer> dist = new ArrayList<>();
+                            int prev_loc = agents.get(i).getCurrentLocation();
+                            for(Item item: pathInv.getItems()) {
+                                if(item.getDestination() != prev_loc) {
+                                    int[] next_dest = mapPaths[prev_loc][item.getDestination()];
+                                    for(int o = 0; o < next_dest.length; o++) {
+                                        loc.add(next_dest[o]);
+                                        dist.add(mapDist[prev_loc][o]);
+                                        prev_loc = next_dest[o];
+                                    }
+                                }
+                            }
+
+                            //Create, Serialise and add to DA
+                            int[] loc_array = loc.stream().mapToInt(o -> o).toArray();
+                            int[] dist_array = loc.stream().mapToInt(o -> o).toArray();
+                            Path path = new Path(loc_array, dist_array);
+                            agents.get(i).setJsonPath(path.serialize());
+                        }
+=======
                     //Solve the constraint problem, and terminate if no solution is found
                     if(!solveConstraintProblem()) {
                         System.out.println(getLocalName() + ": No Solution Found. Stopping this Behaviour");
                         done = true;
+>>>>>>> 0b2e6dca48d21871d803100f8057163a0df02d15
                     }
 
                     System.out.println(getLocalName() + ": Inventories and Paths Created and Assigned");
