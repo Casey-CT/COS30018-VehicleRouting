@@ -421,7 +421,7 @@ public class MasterRoutingAgent extends Agent {
 
                     //TODO: Terminate here if total weight of packages exceeds total capacity of all delivery agents
 
-<<<<<<< HEAD
+
                     //TODO: Expand CSP Solver
                     //Data to Give CSP Solver
                     //Number of Items
@@ -626,12 +626,12 @@ public class MasterRoutingAgent extends Agent {
                             Path path = new Path(loc_array, dist_array);
                             agents.get(i).setJsonPath(path.serialize());
                         }
-=======
+
                     //Solve the constraint problem, and terminate if no solution is found
                     if(!solveConstraintProblem()) {
                         System.out.println(getLocalName() + ": No Solution Found. Stopping this Behaviour");
                         done = true;
->>>>>>> 0b2e6dca48d21871d803100f8057163a0df02d15
+
                     }
 
                     System.out.println(getLocalName() + ": Inventories and Paths Created and Assigned");
