@@ -10,15 +10,15 @@ public class Path {
     //Constants
     public static final int NOT_STARTED = -1;
     public static final int COMPLETE = -2;
-    public static final String PATH = "PATH";
 
 
     //Fields
     //int[] locations - Array of locations node ids
     //int[] distances - Array of same length as locations, contains the distances location and next location
+    //                  eg. distances[i], is how far the DA must travel to get to location[i]
     //int pathLength - length of location and distance arrays
     //int locationPointer - Points to the next location in the path. Must be between 0 and pathLength - 1
-    //                    - Set at -1 to signal that the path has not started to be traversed
+    //                    - initially set at -1 to signal that the path has not started to be traversed
     private int[] locations;
     private int[] distances;
     private int pathLength;
@@ -44,7 +44,8 @@ public class Path {
 
     //Constructor for All Values
     public Path(int[] locations, int[] distances, int pathLength, int locationPointer) {
-        //Should probably do some validation of data in here, but meh, not sure if this will be used at all
+        //Should probably do some validation of data in here, but don't think this will be used at all
+        //Most likely for debugging
         this.locations = locations;
         this.distances = distances;
         this.pathLength = pathLength;
@@ -76,7 +77,7 @@ public class Path {
         }
     }
 
-    //Returns the ID of the next location, or -1 if path is complete
+    //Returns the ID of the next location, or -2 if path is complete
     public int getNextLocation() {
         if(!isPathComplete() && isPathStarted()) {
             return locations[locationPointer];
@@ -84,7 +85,7 @@ public class Path {
         else return COMPLETE;
     }
 
-    //Returns the distance to the next location, or -1 if the path is complete
+    //Returns the distance to the next location, or -2 if the path is complete
     public int getNextDistance() {
         if(!isPathComplete() && isPathStarted()) {
             return distances[locationPointer];

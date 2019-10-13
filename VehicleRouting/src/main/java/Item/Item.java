@@ -6,7 +6,7 @@ import com.google.gson.Gson;
 
 public class Item {
     //Fields
-    //int id - Unique ID for this particlar item
+    //int id - Unique ID for this item object.
     //String name - Name for the item, to be used in output, rather than ID
     //int destination - ID of destination location node for this item
     //int weight - Used to calculate if the Delivery Agent holding this item is at capacity or not
