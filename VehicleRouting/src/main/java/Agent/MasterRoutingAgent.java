@@ -22,6 +22,8 @@ import org.chocosolver.solver.variables.IntVar;
 
 import java.util.ArrayList;
 
+import static org.chocosolver.util.tools.StatisticUtils.sum;
+
 public class MasterRoutingAgent extends Agent {
     //Collection of AgentData Objects, to keep track of the state of each DA this Agent is aware of
     private ArrayList<AgentData> agents = new ArrayList<>();
@@ -110,6 +112,15 @@ public class MasterRoutingAgent extends Agent {
         masterInventory.addItem(new Item(7, "Item7", 1, 16, 1));
         masterInventory.addItem(new Item(8, "Item8", 2, 12, 1));
         masterInventory.addItem(new Item(9, "Item9", 4, 20, 1));
+        masterInventory.addItem(new Item(10, "Item10", 2, 10, 1));
+        masterInventory.addItem(new Item(11, "Item11", 3, 15, 1));
+        masterInventory.addItem(new Item(12, "Item12", 2, 17, 1));
+        masterInventory.addItem(new Item(13, "Item13", 4, 9, 1));
+        masterInventory.addItem(new Item(14, "Item14", 1, 1, 1));
+        masterInventory.addItem(new Item(15, "Item15", 2, 7, 1));
+        masterInventory.addItem(new Item(16, "Item16", 1, 3, 1));
+        masterInventory.addItem(new Item(17, "Item17", 2, 16, 1));
+        masterInventory.addItem(new Item(18, "Item18", 4, 5, 1));
 
         //TODO: Replace this with the GraphGen code
         //Dummy Map Data
@@ -670,6 +681,9 @@ public class MasterRoutingAgent extends Agent {
             Tot_Weights[i] = model.intVar("DA " + i + "Capacity", 0, IntVar.MAX_INT_BOUND);
         }
 
+        //The average weight per delivery agent is the sum of the total weights of all the packages divided by the number of delivery agents
+        int averageWeightPerDA = sum(weight) / D;
+
         //Constraints
         //Each Package Must Be Assigned Once
         for(int i = 0; i < P; i++) {
@@ -686,6 +700,10 @@ public class MasterRoutingAgent extends Agent {
 
             //Total Weight of DA i, cannot exceed capacity of DA i
             model.arithm(Tot_Weights[i], "<=", da_capacity[i]).post();
+            
+            //Naive constraint
+            //Helps better spread the packages among the DAs, works only when DAs have same or very similar capacities
+            model.arithm(Tot_Weights[i], ">=", averageWeightPerDA).post();
 
             //This constraint limits the number of packages a DA can be assigned to 3.
             //If we want to implement limits on the number of packages a DA can hold, we can replace the three with a value pertaining to each DA
