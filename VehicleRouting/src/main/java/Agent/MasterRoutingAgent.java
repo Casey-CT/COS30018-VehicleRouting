@@ -659,6 +659,9 @@ public class MasterRoutingAgent extends Agent {
         da_capacity = temp.stream().mapToInt(o -> o).toArray();
         temp.clear();
 
+        //The average weight per delivery agent is the sum of the total weights of all the packages divided by the number of delivery agents
+        int averageWeightPerDA = sum(weight) / D;
+
         //The Model
         Model model = new Model("Vehicle Routing Solver");
 
@@ -680,9 +683,6 @@ public class MasterRoutingAgent extends Agent {
         for(int i = 0; i < D; i++) {
             Tot_Weights[i] = model.intVar("DA " + i + "Capacity", 0, IntVar.MAX_INT_BOUND);
         }
-
-        //The average weight per delivery agent is the sum of the total weights of all the packages divided by the number of delivery agents
-        int averageWeightPerDA = sum(weight) / D;
 
         //Constraints
         //Each Package Must Be Assigned Once
@@ -717,8 +717,14 @@ public class MasterRoutingAgent extends Agent {
         Solver solver = model.getSolver();
         Solution solution = solver.findSolution();
 
-        //TODO: Clean this up properly
+        //TODO: Replace this with the in-built choco function that determines if a solution cannot be found
+        // Ideally, we should check total weight of packages compared to total capacity of DA's, etc before we get to the solver
         if(solution == null) return false;
+
+        //NOTE:
+        //This Code uses a Choco Solution saved into a variable called solution
+        //When we expand the code so that multiple solutions are compared, save the best one into the solution variable,
+        //so none of this code needs to be refactored
 
         //For each Delivery Agent
         //Processed in the order they appear in the agents ArrayList
@@ -745,60 +751,25 @@ public class MasterRoutingAgent extends Agent {
                 //The temp inventory is serialized and added to the AgentData
                 agents.get(i).setJsonInventory(inv.serialize());
 
-                //TODO: Clean up this code, it is an absolute mess
-                //Sort Items into Order
-                //Items are ordered by which item's destination is closest to the destination of the previous item
-                //The DA's currentLocation is used for the first item
-
+                //Inventories are Sorted, and Paths are created from sorted inventories
                 //Debug
                 System.out.print("Testing Pre Order - ");
                 for(Item item: inv.getItems()) {
                     System.out.print("Item " + item.getId() + ": Dest " + item.getDestination() + " ");
                 }
-                System.out.println();
-
-                //Second temp inventory, which items are added to in sorted order
-                Inventory pathInv = new Inventory();
-
-                int l = inv.getLength();
-                int m = -1;
-                int n = 0;
+                System.out.println(" Total Path Length: " + getPathLength(inv, agents.get(i).getCurrentLocation()));
 
                 //TODO: Decide if Map Nodes start indexing at 0 or 1.
                 // This code assumes Nodes start indexing at 0.
-                //Finds which item is closest, and adds it to the pathInv
-                for(int j = 0; j < l; j++) {
-                    for(int k = 0; k < inv.getLength(); k++) {
-                        if(j == 0) {
-                            if(m == -1) {
-                                m = mapDist[agents.get(i).getCurrentLocation()][inv.getItems().get(k).getDestination()];
-                                n = k;
-                            } else if(mapDist[agents.get(i).getCurrentLocation()][inv.getItems().get(k).getDestination()] < m) {
-                                m = mapDist[agents.get(i).getCurrentLocation()][inv.getItems().get(k).getDestination()];
-                                n = k;
-                            }
-                        }
-                        else {
-                            if(m == -1) {
-                                m = mapDist[pathInv.getItems().get(j - 1).getDestination()][inv.getItems().get(k).getDestination()];
-                                n = k;
-                            } else if(mapDist[pathInv.getItems().get(j - 1).getDestination()][inv.getItems().get(k).getDestination()] < m) {
-                                m = mapDist[pathInv.getItems().get(j - 1).getDestination()][inv.getItems().get(k).getDestination()];
-                                n = k;
-                            }
-                        }
-                    }
-                    m = -1;
-                    pathInv.addItem(inv.getItems().get(n));
-                    inv.removeItem(inv.getItems().get(n).getId());
-                }
+                //Second temp inventory, which items are added to in sorted order
+                Inventory pathInv = sortInventory(inv, agents.get(i).getCurrentLocation());
 
                 //Debug
                 System.out.print("Testing Post Order - ");
                 for(Item item: pathInv.getItems()) {
                     System.out.print("Item " + item.getId() + ": Dest " + item.getDestination() + " ");
                 }
-                System.out.println();
+                System.out.println(" Total Path Length: " + getPathLength(pathInv, agents.get(i).getCurrentLocation()));
 
                 //Iterates through the ordered items in pathInv
                 //For each node between the item and previous item
@@ -828,5 +799,114 @@ public class MasterRoutingAgent extends Agent {
             }
         }
         return true;
+    }
+
+    //Parameters
+    //Inventory inv: an Inventory Object
+    //int startLocation: The currentLocation of the DA assigned to this inventory
+    //
+    //Sorts the Inventory into an order that creates the shortest possible path
+    //
+    //As items are sorted into order, they are removed from inv, and added to sortedInv
+    //
+    //Steps
+    //-Starts a for loop, that loops once for each item in the inventory (loop i)
+    //-In each loop:
+    //      -Loops through the entire (remaining) inventory (loop j)
+    //      -Using mapDist, checks the distance between the last sorted item's destination, and the destination of each item left in the inventory
+    //      -The first item(i == 0), is compared against startLocation.
+    //      -If shorter, or unassigned (closestDist == -1), then the new closestDist is saved, as well as the index of the item (closestItem)
+    //      -At the end of loop j, the closestDist variable is reset, and the item at the index of (closestItem) is removed from inv, and added to pathInv
+    public Inventory sortInventory(Inventory inv, int startLocation) {
+
+        Inventory sortedInv = new Inventory();
+
+        if(!inv.isEmpty()){
+            {
+                try {
+                    int invLength = inv.getLength();
+
+                    //Just to reduce the number of calls to inv.getItems();
+                    ArrayList<Item> items;
+
+                    int closestDist = -1;
+                    int closestItem = 0;
+
+                    for(int i = 0; i < invLength; i++) {
+
+                        items = inv.getItems();
+
+                        for(int j = 0; j < items.size(); j++) {
+                            if(i == 0) {
+                                if(mapDist[startLocation][items.get(j).getDestination()] < closestDist || closestDist == -1) {
+                                    closestDist = mapDist[startLocation][items.get(j).getDestination()];
+                                    closestItem = j;
+                                }
+                            }
+                            else {
+                                if(mapDist[sortedInv.getItems().get(i - 1).getDestination()][items.get(j).getDestination()] < closestDist || closestDist == -1) {
+                                    closestDist = mapDist[sortedInv.getItems().get(i - 1).getDestination()][items.get(j).getDestination()];
+                                    closestItem = j;
+                                }
+                            }
+                        }
+                        sortedInv.addItem(items.get(closestItem));
+                        inv.removeItem(items.get(closestItem).getId());
+                        closestDist = -1;
+                    }
+
+                    return sortedInv;
+
+                } catch (ArrayIndexOutOfBoundsException e) {
+                    System.out.println("Index Was Out of Bounds, While Sorting Inventory");
+                    e.printStackTrace();
+                } catch (Exception e) {
+                    System.out.println("Sorting Inventory Caused an Exception");
+                    e.printStackTrace();
+                }
+            }
+        } else return inv;
+
+        return sortedInv;
+    }
+
+    //Parameters
+    //Inventory inv: Inventory Object
+    //int startLocation: The node to start the path at
+    //
+    //Steps
+    //  -Loops through the supplied inventory
+    //  -Adds the distance between the destination of the current Item, and the previous item (startLocation is used for the first item)
+    //  -Returns the total
+    public int getPathLength(Inventory inv, int startLocation) {
+
+        int result = 0;
+
+        if(!inv.isEmpty()) {
+
+            ArrayList<Item> items = inv.getItems();
+
+            try {
+                for(int i = 0; i < items.size(); i++) {
+                    if (i == 0) {
+                        result += mapDist[startLocation][items.get(i).getDestination()];
+                    }
+                    else {
+                        result += mapDist[items.get(i - 1).getDestination()][items.get(i).getDestination()];
+                    }
+                }
+
+                return result;
+
+            } catch (ArrayIndexOutOfBoundsException e) {
+                System.out.println("Index Was Out of Bounds, While Finding Path Length");
+                e.printStackTrace();
+            } catch (Exception e) {
+                System.out.println("Finding Path Length Caused Exception");
+                e.printStackTrace();
+            }
+        } else return 0;
+
+        return result;
     }
 }
