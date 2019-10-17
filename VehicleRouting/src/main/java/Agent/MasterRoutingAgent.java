@@ -4,6 +4,7 @@ package Agent;
 import Agent.AgentInfo.AgentData;
 import Communication.Message;
 import DeliveryPath.Path;
+import GraphGeneration.GraphGen;
 import Item.Inventory;
 import Item.Item;
 import jade.core.Agent;
@@ -25,6 +26,8 @@ import java.util.ArrayList;
 import static org.chocosolver.util.tools.StatisticUtils.sum;
 
 public class MasterRoutingAgent extends Agent {
+
+    private GraphGen graphGen = new GraphGen();
 
     //Collection of AgentData Objects, to keep track of the state of each DA this Agent is aware of
     private ArrayList<AgentData> agents = new ArrayList<>();
