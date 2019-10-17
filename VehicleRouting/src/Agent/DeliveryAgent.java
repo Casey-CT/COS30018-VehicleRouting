@@ -2,6 +2,7 @@ package Agent;
 
 import Communication.Message;
 import DeliveryPath.Path;
+import GUI.DeliveryAgentInterface;
 import Item.Inventory;
 import Item.Item;
 import jade.core.AID;
@@ -17,7 +18,7 @@ import jade.domain.FIPAAgentManagement.ServiceDescription;
 
 import java.util.*;
 
-public class DeliveryAgent extends Agent {
+public class DeliveryAgent extends Agent implements DeliveryAgentInterface {
     private int capacity = 0;
 	private int currentLocation = 0;
 	private Inventory inventory = new Inventory();
@@ -30,6 +31,10 @@ public class DeliveryAgent extends Agent {
 
     public int getCurrentLocation() {
         return currentLocation;
+    }
+
+    public void getData() {
+
     }
 
     protected void setup() {

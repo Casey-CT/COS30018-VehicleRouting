@@ -2,6 +2,7 @@ package Item;
 
 import com.google.gson.Gson;
 
+
 //TODO: Probably fix an edge case where deserialize potentially creates a weird object if json represenation is invalid
 
 public class Item {
