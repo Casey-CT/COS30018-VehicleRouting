@@ -67,8 +67,7 @@ public class App {
 
             AgentCtrl.start();
             Thread.sleep(2000);
-            GUI.MyAgentInterface o2a = AgentCtrl.getO2AInterface(GUI.MyAgentInterface.class);
-            o2a.StartMasterAgent();
+            o2a = AgentCtrl.getO2AInterface(GUI.MyAgentInterface.class);
 
 //            GUI.MyAgentInterface mAIObject =
 
@@ -94,20 +93,19 @@ public class App {
 //        DACapacity = new JTextField(20);
 
 
-//        MasterAgentButton.addActionListener(new ActionListener() {
-//            @Override
-//            public void actionPerformed(ActionEvent e) {
-//                try {
-//                    AgentController MACtrl = mainCtrl.createNewAgent("MasterAgent", MasterRoutingAgent.class.getName(), new Object[0]);
-//                    MACtrl.start();
-//                    System.out.println(MACtrl.getName() + ": Beginning MasterAgent");
-//                    o2a.StartMasterAgent();
-//                }
-//                catch (StaleProxyException ex) {
-//                    ex.printStackTrace();
-//                }
-//            }
-//        });
+        MasterAgentButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                try {
+                    AgentCtrl.start();
+                    System.out.println(AgentCtrl.getName() + ": Beginning MasterAgent");
+                    o2a.StartMasterAgent();
+                }
+                catch (StaleProxyException ex) {
+                    ex.printStackTrace();
+                }
+            }
+        });
 
 
         //DELIVERY AGENT ACTION LISTENER
@@ -145,34 +143,26 @@ public class App {
             @Override
             public void actionPerformed(ActionEvent e) {
                 AMSAgentDescription[] agents = null;
-                for (AgentController ac : deliveryAgents) {
-                    final JButton btn = new JButton();
-                    buttons.add(btn);
-                    btn.setText("DeliveryAgent " + agentInt);
-                    btn.setName("DeliveryAgentName " + agentInt);
-                    btn.setSize(30, 30);
-                    btn.addActionListener(new ActionListener() {
+//                for (AgentController ac : deliveryAgents) {
+//                    final JButton btn = new JButton();
+//                    buttons.add(btn);
+//                    btn.addActionListener(new ActionListener() {
                         //GET THE INFORMATION FROM THE LISTENER
-                        @Override
-                        public void actionPerformed(ActionEvent e) {
-                            JLabel deliveryLabel = new JLabel();
-                            for (AgentController ac : deliveryAgents) {
-                                if ac.getName() == something..?
-
-                            }
-                            deliveryLabel.setText(agents);
-                            thirdFrame.setVisible(true);
-                        }
-                    });
-                }
+//                        @Override
+//                        public void actionPerformed(ActionEvent e) {
+//                            JLabel deliveryLabel = new JLabel();
+//                            for (AgentController ac : deliveryAgents) {
+//
+//                            }
+//                            deliveryLabel.setText("Variable regarding info");
+//                            thirdFrame.setVisible(true);
+//                        }
+//                    });
+//                }
                 GridBagLayout gbl = new GridBagLayout();
 
                 JPanel gridButtons = new JPanel(new GridBagLayout());
                 GridBagConstraints gbc = new GridBagConstraints();
-
-                gbc.anchor = GridBagConstraints.CENTER;
-                gbc.gridwidth = GridBagConstraints.REMAINDER;
-                gbc.anchor = GridBagConstraints.NORTH;
 
 //                secondFrame.add();
                 Dimension frameDimension = new Dimension(300, 300);

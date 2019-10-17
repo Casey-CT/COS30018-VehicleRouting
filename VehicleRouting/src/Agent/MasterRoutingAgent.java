@@ -378,7 +378,7 @@ public class MasterRoutingAgent extends Agent implements MyAgentInterface {
     }
     @Override
     public void StartMasterAgent() {
-
+        addBehaviour(new processRoutes());
     }
 
 }
