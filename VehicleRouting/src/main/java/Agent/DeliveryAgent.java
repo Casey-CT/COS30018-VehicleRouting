@@ -18,16 +18,30 @@ import jade.domain.FIPAAgentManagement.ServiceDescription;
 import java.util.*;
 
 public class DeliveryAgent extends Agent {
+
+    //This agents capacity (compared against the weight of the items in its inventory)
+    //Has a default value of 0, so if capacity is not specified when an agent of this type is spun up, it can be terminated easily
     private int capacity = 0;
+
+    //Current Node ID of the location this delivery agent is currently at
+    //TODO: Decide if map begins indexing at 0 or 1, and update this default value
 	private int currentLocation = 0;
+
+	//Inventory to be used by this object
 	private Inventory inventory = new Inventory();
+
+	//Path to be used by this object
 	private Path path;
+
+	//Saved copy of the Master Routing Agents Jade ID, to be used by the messageMaster() function
 	private AID MRA_ID;
-	
+
+	//Returns this agents capacity
     public int getCapacity() {
         return capacity;
     }
 
+    //Returns the node ID of this agents current location
     public int getCurrentLocation() {
         return currentLocation;
     }
@@ -47,16 +61,21 @@ public class DeliveryAgent extends Agent {
         }
     }
 
-    //Used to restart the agent if paused
+    //Called by the ListenForMessages behaviour
     protected void start() {
         addBehaviour(new Travel());
     }
 
     //Used to pause the agent and all it's behaviours
+    //TODO: Actually Create This Method
     protected void pause() {
     }
 
     //Reusable function for sending a message to master agent
+    //
+    //Parameters
+    // performative: An ACLMessage constant, which is of type int
+    // content: the content to be applied to the message
     protected void messageMaster(int performative, String content) {
         if(MRA_ID != null) {
             ACLMessage message = new ACLMessage(performative);
@@ -79,25 +98,31 @@ public class DeliveryAgent extends Agent {
         doDelete();
     }
 
+    //Constantly Loops, and checks for messages
+    //If a message is found, it reviews the content, and acts accordingly
+    //
+    //Message Content format; IDENTIFIER:data
+    //IDENTIFIER, is any of the fields in the Message class (Communication.Message)
+    //data is the data that is processed, depending on the IDENTIFIER, this is usually a JSON representation
+    //First the performative of the message is viewed,
+    //Then the message content is passed to the appropriate function
+    //
+    //Depending on the performative, the message content is then split, using the delimiter character ":"
+    //The first substring determines the type of data in the message content
+    //The second is the data, usually JSON representation of objects
     private class ListenForMessages extends CyclicBehaviour {
         public void action() {
-            //MessageTemplate mt = MessageTemplate.MatchPerformative(ACLMessage.INFORM);
-            //Create a message template for our purposes
-				
-			//check if message performative is REQUEST and content is "KILL"
-			//kill the DA 
-			//run agent ShutdownAgent behaviour
-			//myAgent.takeDown();
-
-            ACLMessage msg = myAgent.receive();       //pass mt to receive()
+            ACLMessage msg = myAgent.receive();
 
             if (msg != null) {
-                System.out.println(myAgent.getLocalName() + ": Message Received");
                 //Message received. Process it.
-                //MessageReader mr = new MessageReader();
-                //Items[] = mr.Read(msg.getContent());            //assuming we have an Items class
+                System.out.println(myAgent.getLocalName() + ": Message Received");
 
                 String messageContent = msg.getContent();
+
+                //TODO: Replace This With Something More Robust
+                // Though it cannot happen in our system, realistically, any other agent could message this one, and overwrite the MRA_ID field
+                // Change to use AMS, within the setup method of this agent.
                 MRA_ID = msg.getSender();
 
                 if(msg.getPerformative() == ACLMessage.INFORM) {
@@ -105,7 +130,7 @@ public class DeliveryAgent extends Agent {
                     ACLMessage reply = msg.createReply();
                     reply.setPerformative(ACLMessage.INFORM);
 
-                    if(jsonMessage[0].equals(Inventory.INVENTORY)) {
+                    if(jsonMessage[0].equals(Message.INVENTORY)) {
                         System.out.println(myAgent.getLocalName() + ": Received New Inventory Message");
 
                         if(loadInventory(jsonMessage[1])) {
@@ -119,7 +144,7 @@ public class DeliveryAgent extends Agent {
                         }
                     }
 
-                    else if(jsonMessage[0].equals(Path.PATH)) {
+                    else if(jsonMessage[0].equals(Message.PATH)) {
                         System.out.println(myAgent.getLocalName() + ": Received New Path Message");
 
                         if(loadPath(jsonMessage[1])) {
@@ -132,9 +157,12 @@ public class DeliveryAgent extends Agent {
                             System.out.println(myAgent.getLocalName() + ": Sending Path Failure Message");
                         }
                     }
+
                     else
                         throw new IllegalArgumentException(myAgent.getLocalName() + ": Received Wrong message type");
-                } else if(msg.getPerformative() == ACLMessage.REQUEST) {
+                }
+
+                else if(msg.getPerformative() == ACLMessage.REQUEST) {
                     if(messageContent.equals(Message.STATUS)) {
                         System.out.println(myAgent.getLocalName() + ": Received Status Request");
 
@@ -150,91 +178,92 @@ public class DeliveryAgent extends Agent {
                         start();
                     }
 
-
                     else
                         throw new IllegalArgumentException("Wrong message content");
                 }
-                //ACLMessage reply = msg.createReply();
-
-                //if(at least one package has been received && package can be carried (not overloaded)) {
-                //  reply.setPerformative(ACLMessage.INFORM);
-                //  reply.setContent("package received");
-                // }
-
-                //else(no packages received, or package weight will overload the DA capacity)
-                //  reply.setPerformative(ACLMessage.REFUSE);
-                //  reply.setContent("no packages received" || "cannot carry package, over capacity, dropping package");
             }
         }
     }
 
-    //Should be added in the message handling behaviour, when the master agent supplies an inventory
-    //Accepts the JSON representation of the inventory provided by the master routing agent
-    //Adds the supplied inventory to this agent's inventory
-    //Compares the given inventory against this Delivery Agents Capacity and Size Limits
+    //Called in the ListenForMessages behaviour, when the master agent supplies an inventory
+    //
+    //Parameters
+    // json: String representation of an Inventory Object
+    //
+    //Deserializes an Inventory from the json paramater
+    //Compares the given inventory against this Delivery Agents capacity, and Whether it is a valid inventory
+    //If it is, it attempts to add the supplied inventory to its own inventory object (using the addInventory() method from the Inventory class)
+    //Sends the Master Agent a reply, with either success or failure
     private boolean loadInventory(String json)  {
-            Inventory temp = Inventory.deserialize(json);
-            ACLMessage reply = new ACLMessage(ACLMessage.INFORM);
-            if(!temp.isEmpty()){
-                if(!((inventory.getTotalSize() + temp.getTotalSize()) > getCapacity())) {
-                    if(inventory.addInventory(temp)){
-                        System.out.println(getLocalName() + ": Items Were Added.\n" + inventory.listItems());
-                        reply.setContent(Message.INVENTORY_SUCCESS);
-                        send(reply);
-                        return true;
-                    }
-                    else {
-                        System.out.println(getLocalName() + ": No Items Were Added.");
-                        reply.setContent(Message.INVENTORY_FAILURE);
-                        send(reply);
-                        return false;
-                    }
+        Inventory temp = Inventory.deserialize(json);
+        ACLMessage reply = new ACLMessage(ACLMessage.INFORM);
+        if(!temp.isEmpty()){
+            if(!((inventory.getTotalSize() + temp.getTotalSize()) > getCapacity())) {
+                if(inventory.addInventory(temp)){
+                    System.out.println(getLocalName() + ": Items Were Added.\n" + inventory.listItems());
+                    reply.setContent(Message.INVENTORY_SUCCESS);
+                    send(reply);
+                    return true;
                 }
                 else {
-                    System.out.println(getLocalName() + ": Supplied Inventory Exceeded Capacity.");
+                    System.out.println(getLocalName() + ": No Items Were Added.");
                     reply.setContent(Message.INVENTORY_FAILURE);
                     send(reply);
                     return false;
                 }
             }
             else {
-                System.out.println(getLocalName() + ": Supplied Inventory was Empty.");
+                System.out.println(getLocalName() + ": Supplied Inventory Exceeded Capacity.");
                 reply.setContent(Message.INVENTORY_FAILURE);
                 send(reply);
                 return false;
             }
         }
-
-    //Should be added in the message handling behaviour
-    //Accepts the JSON representation of the path provided by master router
-    //Adds the supplied path to this Delivery Agent
-    private boolean loadPath(String json) {
-            Path p = Path.deserialize(json);
-            ACLMessage reply = new ACLMessage(ACLMessage.INFORM);
-            if(p.isPathValid()) {
-                path = p;
-                System.out.println(getLocalName() + ": Path Set");
-                reply.setContent(Message.PATH_SUCCESS);
-                send(reply);
-                return true;
-            }
-            else{
-                System.out.println(getLocalName() + ": Supplied Path was Invalid");
-                reply.setContent(Message.PATH_FAILURE);
-                send(reply);
-                return false;
-            }
+        else {
+            System.out.println(getLocalName() + ": Supplied Inventory was Empty.");
+            reply.setContent(Message.INVENTORY_FAILURE);
+            send(reply);
+            return false;
         }
+    }
 
-    //Called when wakerbehaviour added by travel completes
-    //Looks through package list, finds matching packages
-    //Removes each package from list and messages master router
-    //Adds a new travel behaviour
+    //Called in the ListenForMessages behaviour, when the master agent supplied a path
+    //
+    //Parameters
+    //json: JSON representation of a Path object
+    //
+    //Deserializes the supplied Path object from the json parameter
+    //Checks if it is valid, using the isPathValid() method, from the Path class
+    //If valid, Adds the supplied path to this Delivery Agent
+    //Sends either success of failure to the Master Agents
+    private boolean loadPath(String json) {
+        Path p = Path.deserialize(json);
+        ACLMessage reply = new ACLMessage(ACLMessage.INFORM);
+        if(p.isPathValid()) {
+            path = p;
+            System.out.println(getLocalName() + ": Path Set");
+            reply.setContent(Message.PATH_SUCCESS);
+            send(reply);
+            return true;
+        }
+        else{
+            System.out.println(getLocalName() + ": Supplied Path was Invalid");
+            reply.setContent(Message.PATH_FAILURE);
+            send(reply);
+            return false;
+        }
+    }
+
+    //Added by WakerBehaviours added by the Travel behaviour
+    //
+    //Loops through inventory, and copies ids of items that match
+    //If the list of item matches is not empty, it is iterated through, and any matching packages are removed from the inventory
+    //Sends a message to Master Agent, based on the returned boolean value of inventory.removeItem();
+    //
+    //Once iteration is complete, this behaviour adds a new Travel behaviour
     private class onArrival extends OneShotBehaviour {
         public void action() {
-            //Find Packages That Match
-            //Doing a separate list of matches first, as I'm pretty sure removing elements while iterating through
-            //an entire list, will cause it to explode
+            //Placing found matches in a seperate list, so removing items while iterating does not cause issues
             ArrayList<Integer> item_match = new ArrayList<>();
             for(Item i: inventory.getItems()) {
                 //Add in additional conditions here if attempting extentions
@@ -268,14 +297,17 @@ public class DeliveryAgent extends Agent {
         }
     }
 
-    //Called By Delivery Agent When Told To Start
-    //Called By onArrival to move to next location
-    //-Gets Next Location
-    //-Gets Next Distance
-    //-Checks if path has ended
-    //-Starts a new Wakeup behaviour, using the distance as a time
-    //  -On Wakeup, Overwrites new location
-    //  -then adds a new arrive behaviour
+    //TODO: If path is complete, message master instead of destroying this agent.
+    //This behaviour is added by the start() method, initially
+    //While in the travel/deliver loop, this behaviour is added by the OnArrival behaviour;
+    //
+    //Calls the Paths Traverse Method
+    //Checks if Path is Complete, using the Paths isPathComplete() method
+    //
+    //If Path is Not Complete, gets the next location and distance to location, using the Paths getNextLocation() and getNextDistance() methods
+    //
+    //These two values are used to create a new WakerBehaviour, which triggers after seconds, equal to the distance to the next location
+    //When the WakerBehaviour triggers, the currentLocation variable is updated, and an OnArrival behaviour is added
     private class Travel extends OneShotBehaviour {
         public void action() {
             if(!path.isPathStarted()) {
@@ -302,11 +334,3 @@ public class DeliveryAgent extends Agent {
         }
     }
 }
-
-
-
-
-
-
-
-

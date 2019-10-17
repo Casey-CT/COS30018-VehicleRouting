@@ -7,16 +7,11 @@ import java.util.ArrayList;
 //TODO: Some of the list manipulation methods could probably be more efficient, and loop through the list less
 
 //Inventory class to be used by both Master Agent and Delivery Agents
-//Master Agent will create one of these objects for each delivery agent, when it creates a route and assigns packages
+//Master Agent will serialize one of these objects for each delivery agent, when it creates a route and assigns packages
 public class Inventory {
     private ArrayList<Item> items;
 
-    public static final String INVENTORY = "INVENTORY";
-
-
-
-
-    //Regular Constructor
+    //Constructor. For creating an inventory with items
     public Inventory(ArrayList<Item> items) {
         this.items = items;
 
@@ -25,7 +20,7 @@ public class Inventory {
         }
     }
 
-    //Constructor for Creating an Empty Inventory
+    //Constructor. For Creating an Empty Inventory
     public Inventory() {
         items = new ArrayList<Item>();
     }
@@ -57,7 +52,8 @@ public class Inventory {
         return i;
     }
 
-    //List Manipulation Methods
+    //TODO: Add Wrapper methods so Inventories can be iterated directly, instead of using the getItems() method
+    //Underlying List Manipulation Methods
     //Returns the number of Items in this Inventory
     public int getLength() {
         return items.size();
@@ -94,6 +90,9 @@ public class Inventory {
         else return false;
     }
 
+    //TODO: Fix up this method.
+    // Ideally, if every item in the supplied inventory are not added, this function should return false, or throw an exception
+    // Adding only half the supplied inventory, and still returning true isn't an ideal scenario
     //Adds all Items in Parameter Inventory to this Inventory
     //As it uses the addItem function, it will only add items with ids that do not currently exist in this inventory
     //Return true if items added, false otherwise
@@ -164,7 +163,7 @@ public class Inventory {
                 else result += items.get(i).toString() + "\n";
             }
         }
-        else return "List is Empty!";
+        else return "Inventory is Empty!";
 
         return result;
     }
