@@ -33,8 +33,12 @@ public class DeliveryAgent extends Agent implements DeliveryAgentInterface {
         return currentLocation;
     }
 
-    public void getData() {
+    @Override
+    public String getData() {
+        String s = "asdfjadf;klajsdf;l";
 
+
+        return s;
     }
 
     protected void setup() {

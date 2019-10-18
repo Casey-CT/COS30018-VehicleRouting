@@ -40,7 +40,11 @@ public class App {
     final JFrame thirdFrame = new JFrame();
     ArrayList<JButton> buttons = new ArrayList<>();
 
-    ArrayList<AgentController> deliveryAgents = new ArrayList<>();
+
+
+//    DAo2aList.add();
+
+
 
     private JButton MasterAgentButton;
     private JButton DeliveryAgentButton;
@@ -55,11 +59,16 @@ public class App {
     private int agentInt;
     private GUI.MyAgentInterface o2a;
 
-    public App() throws StaleProxyException {
+
+    private GUI.DeliveryAgentInterface DAo2a;
+    private ArrayList<GUI.DeliveryAgentInterface> DAo2aList = new ArrayList<>();
+
+    public App() throws StaleProxyException, InterruptedException {
         //Init
         Runtime rt = Runtime.instance();
         Profile pMain = new ProfileImpl(null, 8888, null);
         ContainerController mainCtrl = rt.createMainContainer(pMain);
+        Thread.sleep(10000);
         AgentController AgentCtrl = mainCtrl.createNewAgent("MasterRoutingAgent", MasterRoutingAgent.class.getName(), new Object[0]);
 
         try {
@@ -67,6 +76,7 @@ public class App {
 
             AgentCtrl.start();
             Thread.sleep(2000);
+//            DAo2a =
             o2a = AgentCtrl.getO2AInterface(GUI.MyAgentInterface.class);
 
 //            GUI.MyAgentInterface mAIObject =
@@ -108,7 +118,7 @@ public class App {
         });
 
 
-        //DELIVERY AGENT ACTION LISTENER
+        // *2: DELIVERY AGENT ACTION LISTENER
 
         DeliveryAgentButton.addActionListener(new ActionListener() {
             @Override
@@ -120,14 +130,19 @@ public class App {
                     capacityInt = Integer.parseInt(temp);
                     Object[] args = {(Integer) capacityInt};
 
+                    //ASSIGNING DAO2A AND THEN ADDING IT TO THE LIST
                     AgentController DACtrl = mainCtrl.createNewAgent("DeliveryAgent" + agentInt, DeliveryAgent.class.getName(), args);
-                    deliveryAgents.add(DACtrl);
-
-                    final JButton daButton = new JButton();
-                    buttons.add(daButton);
-                    secondFrame.add(daButton);
-
                     DACtrl.start();
+                    Thread.sleep(5000);
+                    DAo2a = DACtrl.getO2AInterface(DeliveryAgentInterface.class);
+
+                    DAo2aList.add(DAo2a);
+
+
+//                    final JButton daButton = new JButton();
+//                    buttons.add(daButton);
+//                    secondFrame.add(daButton);
+
 
 
 
@@ -138,11 +153,15 @@ public class App {
                 }
             }
         });
-        //CHECK FOR AGENT DETAILS BUTTON LISTENER
+
+
+        //*3: CHECK FOR AGENT DETAILS BUTTON LISTENER
         CheckAgentButton.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
                 AMSAgentDescription[] agents = null;
+
+
 //                for (AgentController ac : deliveryAgents) {
 //                    final JButton btn = new JButton();
 //                    buttons.add(btn);
@@ -195,13 +214,17 @@ public class App {
                     //capacityInt = Integer.parseInt(temp);
                     Object[] args = {(Integer) capacityInt};
 
-                    AgentController DACtrl = mainCtrl.createNewAgent("DeliveryAgent" + agentInt, DeliveryAgent.class.getName(), args);
-
-                    DACtrl.start();
-
-
-                    System.out.println(DACtrl.getName() + agentInt + "Created DeliveryAgent");
-                } catch (StaleProxyException | InterruptedException ex) {
+                    int i=0;
+                    String s = "";
+                    while(i < DAo2aList.size()) {
+                        s = DAo2aList.get(i).getData();
+//                        s + " " + DAo2aList.get(i).getData();
+//                        s + " " + toString(DAo2aList[i].getData());
+//                        DAo2aList
+                        System.out.println(s);
+                    }
+                    System.out.println(DAo2aList);
+                } catch (InterruptedException ex) {
                     ex.printStackTrace();
                 }
             }
