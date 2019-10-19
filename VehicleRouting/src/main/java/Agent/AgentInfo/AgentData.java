@@ -50,6 +50,15 @@ public class AgentData {
         return name.getLocalName().equals(a.getLocalName());
     }
 
+    //Methods to clear jsonPath and jsonInventory after they've been used
+    public void clearJsonInventory() {
+        jsonInventory = "";
+    }
+
+    public void clearJsonPath() {
+        jsonPath = "";
+    }
+
     //Field Getters and Setters
     public AID getName() {
         return name;
