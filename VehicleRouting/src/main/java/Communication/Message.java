@@ -14,4 +14,6 @@ public class Message {
     public static final String ARRIVE = "ARRIVE";
     public static final String DELIVERED = "DELIVERED";
     public static final String ERROR = "ERROR";
+    public static final String COMPLETE = "COMPLETE";
+    public static final String RETURN = "RETURN";
 }

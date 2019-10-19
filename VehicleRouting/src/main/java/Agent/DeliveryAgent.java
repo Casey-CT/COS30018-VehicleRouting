@@ -36,6 +36,9 @@ public class DeliveryAgent extends Agent {
 	//Saved copy of the Master Routing Agents Jade ID, to be used by the messageMaster() function
 	private AID MRA_ID;
 
+	//Boolean used as a flag to signal if DA is returning to depot
+    private boolean returning = false;
+
 	//Returns this agents capacity
     public int getCapacity() {
         return capacity;
@@ -120,51 +123,69 @@ public class DeliveryAgent extends Agent {
 
                 String messageContent = msg.getContent();
 
-                //TODO: Replace This With Something More Robust
-                // Though it cannot happen in our system, realistically, any other agent could message this one, and overwrite the MRA_ID field
-                // Change to use AMS, within the setup method of this agent.
-                MRA_ID = msg.getSender();
-
                 if(msg.getPerformative() == ACLMessage.INFORM) {
-                    String[] jsonMessage = messageContent.split(":", 2);
                     ACLMessage reply = msg.createReply();
                     reply.setPerformative(ACLMessage.INFORM);
 
-                    if(jsonMessage[0].equals(Message.INVENTORY)) {
-                        System.out.println(myAgent.getLocalName() + ": Received New Inventory Message");
+                    if(messageContent.contains(Message.INVENTORY)) {
+                        try {
+                            String[] jsonMessage = messageContent.split(":", 2);
+                            System.out.println(myAgent.getLocalName() + ": Received New Inventory Message");
 
-                        if(loadInventory(jsonMessage[1])) {
-                            reply.setContent(Message.INVENTORY_SUCCESS);
-                            send(reply);
-                            System.out.println(myAgent.getLocalName() + ": Sending Inventory Success Message");
-                        } else {
-                            reply.setContent(Message.INVENTORY_FAILURE);
-                            send(reply);
-                            System.out.println(myAgent.getLocalName() + ": Sending Inventory Failure Message");
+                            if(loadInventory(jsonMessage[1])) {
+                                reply.setContent(Message.INVENTORY_SUCCESS);
+                                send(reply);
+                                System.out.println(myAgent.getLocalName() + ": Sending Inventory Success Message");
+                            } else {
+                                reply.setContent(Message.INVENTORY_FAILURE);
+                                send(reply);
+                                System.out.println(myAgent.getLocalName() + ": Sending Inventory Failure Message");
+                            }
+                        } catch (Exception ex) {
+                            ex.printStackTrace();
+                            System.out.println(myAgent.getLocalName() + ": Caused Exception While Processing Inventory Message");
                         }
                     }
 
-                    else if(jsonMessage[0].equals(Message.PATH)) {
-                        System.out.println(myAgent.getLocalName() + ": Received New Path Message");
+                    else if(messageContent.contains(Message.PATH)) {
+                        try {
+                            String[] jsonMessage = messageContent.split(":", 2);
+                            System.out.println(myAgent.getLocalName() + ": Received New Path Message");
 
-                        if(loadPath(jsonMessage[1])) {
-                            reply.setContent(Message.PATH_SUCCESS);
-                            send(reply);
-                            System.out.println(myAgent.getLocalName() + ": Sending Path Success Message");
-                        } else {
-                            reply.setContent(Message.PATH_FAILURE);
-                            send(reply);
-                            System.out.println(myAgent.getLocalName() + ": Sending Path Failure Message");
+                            if(loadPath(jsonMessage[1])) {
+                                reply.setContent(Message.PATH_SUCCESS);
+                                send(reply);
+                                System.out.println(myAgent.getLocalName() + ": Sending Path Success Message");
+                            } else {
+                                reply.setContent(Message.PATH_FAILURE);
+                                send(reply);
+                                System.out.println(myAgent.getLocalName() + ": Sending Path Failure Message");
+                            }
+                        } catch (Exception ex) {
+                            ex.printStackTrace();
+                            System.out.println(myAgent.getLocalName() + ": Caused Exception While Processing Path Message");
                         }
                     }
 
                     else
-                        throw new IllegalArgumentException(myAgent.getLocalName() + ": Received Wrong message type");
+                        try {
+                            throw new IllegalArgumentException(myAgent.getLocalName() + ": Received Wrong message type");
+                        } catch (Exception ex) {
+                            ex.printStackTrace();
+                        }
+
                 }
 
                 else if(msg.getPerformative() == ACLMessage.REQUEST) {
                     if(messageContent.equals(Message.STATUS)) {
                         System.out.println(myAgent.getLocalName() + ": Received Status Request");
+
+                        //If MRA_ID has not been set yet, set it
+                        //A request message should be the first message this agent receives, so this should be a safe solution
+                        //secondly, only the MRA can send a message of this type
+                        if(MRA_ID == null) {
+                            MRA_ID = msg.getSender();
+                        }
 
                         ACLMessage reply = msg.createReply();
                         reply.setPerformative(ACLMessage.INFORM);
@@ -178,8 +199,31 @@ public class DeliveryAgent extends Agent {
                         start();
                     }
 
+                    else if(messageContent.contains(Message.RETURN)) {
+                        try {
+                            String[] jsonMessage = messageContent.split(":", 2);
+                            if(loadPath(jsonMessage[1])) {
+                                System.out.println(myAgent.getLocalName() + ": Added Return Path.");
+                                returning = true;
+                                addBehaviour(new Travel());
+                            }
+                            else {
+                                messageMaster(ACLMessage.FAILURE, Message.ERROR);
+                                System.out.println(myAgent.getLocalName() + ": Error in Processing Supplied Return Path");
+                            }
+                        } catch (Exception ex) {
+                            ex.printStackTrace();
+                            System.out.println(myAgent.getLocalName() + ": Caused Exception While Processing Return Message");
+                        }
+                    }
+
                     else
-                        throw new IllegalArgumentException("Wrong message content");
+                        try {
+                            throw new IllegalArgumentException("Wrong message content");
+                        } catch (Exception ex) {
+                            ex.printStackTrace();
+                        }
+
                 }
             }
         }
@@ -263,32 +307,34 @@ public class DeliveryAgent extends Agent {
     //Once iteration is complete, this behaviour adds a new Travel behaviour
     private class onArrival extends OneShotBehaviour {
         public void action() {
-            //Placing found matches in a seperate list, so removing items while iterating does not cause issues
-            ArrayList<Integer> item_match = new ArrayList<>();
-            for(Item i: inventory.getItems()) {
-                //Add in additional conditions here if attempting extentions
-                //Checking time window, etc.
-                if(i.getDestination() == getCurrentLocation()) {
-                    item_match.add(i.getId());
-                }
-            }
-
-            System.out.println(myAgent.getLocalName() + ": " + item_match.size() + " Items to Deliver to Location " + getCurrentLocation());
-
-            //If there are packages to deliver
-            if(!item_match.isEmpty()) {
-                for(int i: item_match) {
-                    System.out.println(myAgent.getLocalName() + ": Delivering Item " + i + " at Location " + getCurrentLocation());
-                    if(inventory.removeItem(i)) {
-                        System.out.println(myAgent.getLocalName() + ": Item " + i + " Delivered at Location " + getCurrentLocation());
-                        messageMaster(ACLMessage.INFORM, Message.DELIVERED + ":" + i);
-                        if(inventory.isEmpty()) {
-                            System.out.println(myAgent.getLocalName() + ": No Items Remaining. Returning to Depot");
-                        }
+            if(!inventory.isEmpty()) {
+                //Placing found matches in a seperate list, so removing items while iterating does not cause issues
+                ArrayList<Integer> item_match = new ArrayList<>();
+                for(Item i: inventory.getItems()) {
+                    //Add in additional conditions here if attempting extentions
+                    //Checking time window, etc.
+                    if(i.getDestination() == getCurrentLocation()) {
+                        item_match.add(i.getId());
                     }
-                    else {
-                        System.out.println(myAgent.getLocalName() + ": ERROR - Item " + i + " Not Delivered at Location " + getCurrentLocation());
-                        messageMaster(ACLMessage.FAILURE, Message.ERROR);
+                }
+
+                System.out.println(myAgent.getLocalName() + ": " + item_match.size() + " Items to Deliver to Location " + getCurrentLocation());
+
+                //If there are packages to deliver
+                if(!item_match.isEmpty()) {
+                    for(int i: item_match) {
+                        System.out.println(myAgent.getLocalName() + ": Delivering Item " + i + " at Location " + getCurrentLocation());
+                        if(inventory.removeItem(i)) {
+                            System.out.println(myAgent.getLocalName() + ": Item " + i + " Delivered at Location " + getCurrentLocation());
+                            messageMaster(ACLMessage.INFORM, Message.DELIVERED + ":" + i);
+                            if(inventory.isEmpty()) {
+                                System.out.println(myAgent.getLocalName() + ": No Items Remaining. Returning to Depot");
+                            }
+                        }
+                        else {
+                            System.out.println(myAgent.getLocalName() + ": ERROR - Item " + i + " Not Delivered at Location " + getCurrentLocation());
+                            messageMaster(ACLMessage.FAILURE, Message.ERROR);
+                        }
                     }
                 }
             }
@@ -297,17 +343,21 @@ public class DeliveryAgent extends Agent {
         }
     }
 
-    //TODO: If path is complete, message master instead of destroying this agent.
     //This behaviour is added by the start() method, initially
     //While in the travel/deliver loop, this behaviour is added by the OnArrival behaviour;
     //
     //Calls the Paths Traverse Method
     //Checks if Path is Complete, using the Paths isPathComplete() method
     //
-    //If Path is Not Complete, gets the next location and distance to location, using the Paths getNextLocation() and getNextDistance() methods
+    //If Path is Not Complete:
+    //-Gets the next location and distance to location, using the Paths getNextLocation() and getNextDistance() methods
+    //-These two values are used to create a new WakerBehaviour, which triggers after seconds, equal to the distance to the next location
+    //-When the WakerBehaviour triggers, the currentLocation variable is updated, and an OnArrival behaviour is added
     //
-    //These two values are used to create a new WakerBehaviour, which triggers after seconds, equal to the distance to the next location
-    //When the WakerBehaviour triggers, the currentLocation variable is updated, and an OnArrival behaviour is added
+    //If Path is Complete:
+    //-This agents Path Object is nulled
+    //-A COMPLETE message is sent to the Master Router if the returning boolean is false
+    //-If the returning boolean is true, it is set to false. A COMPLETE message is not sent, as a returning path is not required.
     private class Travel extends OneShotBehaviour {
         public void action() {
             if(!path.isPathStarted()) {
@@ -328,8 +378,15 @@ public class DeliveryAgent extends Agent {
                 System.out.println(myAgent.getLocalName() + ": Travelling to " + l);
             }
             else {
-                System.out.println(myAgent.getLocalName() + ": PATH COMPLETE");
-                takeDown();
+                System.out.println(myAgent.getLocalName() + ": Path Complete");
+                path = null;
+                if(returning) {
+                    System.out.println(myAgent.getLocalName() + ": Returned to Depot");
+                    returning = false;
+                }
+                else {
+                    messageMaster(ACLMessage.INFORM, Message.COMPLETE);
+                }
             }
         }
     }

@@ -155,9 +155,7 @@ public class MasterRoutingAgent extends Agent {
         addBehaviour(new processRoutes());
     }
 
-    //TODO:
-    // Add in message that nullifies the inventories and paths of each agentdata, once the DA sends a path complete message
-    // Additionally, when the DA sends a path complete message, send it a path that leads it back to node 0, and send it a message to start.
+    //TODO: Comment each individual message interpretation
     //Behaviour that constantly loops, listening for messages
     //Works in the same way as the ListenForMessages behaviour in the DeliveryAgent class
     //
@@ -174,9 +172,9 @@ public class MasterRoutingAgent extends Agent {
                 String messageContent = msg.getContent();
 
                 if(msg.getPerformative() == ACLMessage.INFORM) {
-                    String[] splitContent = messageContent.split(":", 2);
 
-                    if(splitContent[0].equals(Message.ARRIVE)) {
+                    if(messageContent.contains(Message.ARRIVE)) {
+                        String[] splitContent = messageContent.split(":", 2);
                         boolean set = false;
                         for (AgentData agent: agents) {
                             if(agent.matchData(msg.getSender())) {
@@ -191,13 +189,14 @@ public class MasterRoutingAgent extends Agent {
                         }
                         if(!set) {
                             try {
-                                throw new Exception(myAgent.getLocalName() + ": Received Message From Unknown Delivery Agent.");
+                                throw new Exception(myAgent.getLocalName() + ": Received Arrival Message From Unknown Delivery Agent.");
                             } catch(Exception ex) {
                                 ex.printStackTrace();
                             }
                         }
                     }
-                    else if(splitContent[0].equals(Message.DELIVERED)) {
+                    else if(messageContent.contains(Message.DELIVERED)) {
+                        String[] splitContent = messageContent.split(":", 2);
                         boolean set = false;
                         for (AgentData agent: agents) {
                             if(agent.matchData(msg.getSender())) {
@@ -211,7 +210,43 @@ public class MasterRoutingAgent extends Agent {
                         }
                         if(!set) {
                             try {
-                                throw new Exception(myAgent.getLocalName() + ": Received Message From Unknown Delivery Agent.");
+                                throw new Exception(myAgent.getLocalName() + ": Received Package Delivered Message From Unknown Delivery Agent.");
+                            } catch(Exception ex) {
+                                ex.printStackTrace();
+                            }
+                        }
+                    }
+                    else if(messageContent.contains(Message.COMPLETE)) {
+                        boolean set = false;
+                        for (AgentData agent: agents) {
+                            if(agent.matchData(msg.getSender())) {
+                                try {
+                                    set = true;
+
+                                    if(agent.getCurrentLocation() != 0) {
+                                        int[] pathLoc = mapPaths[agent.getCurrentLocation()][0];
+                                        int[] pathDist = new int[pathLoc.length];
+
+                                        pathDist[0] = mapDist[agent.getCurrentLocation()][pathLoc[0]];
+                                        for(int i = 1; i < pathLoc.length; i++) {
+                                            pathDist[i] = mapDist[pathLoc[i - 1]][pathLoc[i]];
+                                        }
+
+                                        String jsonPath = new Path(pathLoc, pathDist).serialize();
+
+                                        ACLMessage reply = msg.createReply();
+                                        reply.setPerformative(ACLMessage.REQUEST);
+                                        reply.setContent(Message.RETURN + ":" + jsonPath);
+                                        myAgent.send(reply);
+                                    }
+                                } catch(Exception ex) {
+                                    ex.printStackTrace();
+                                }
+                            }
+                        }
+                        if(!set) {
+                            try {
+                                throw new Exception(myAgent.getLocalName() + ": Received Path Complete Message From Unknown Delivery Agent.");
                             } catch(Exception ex) {
                                 ex.printStackTrace();
                             }
@@ -229,7 +264,6 @@ public class MasterRoutingAgent extends Agent {
         }
     }
 
-    //TODO: Make sure an AgentData object for a particular agent doesn't already exist, when populating the agents ArrayList in step 0
     //Behaviour that constantly loops its action() method, until the done() method returns true
     //What is run in the action() method, depends on the value of the step variable
     //
@@ -237,7 +271,7 @@ public class MasterRoutingAgent extends Agent {
     //Step 0: Find Agents, and request their status
     //  -Using the AMSService, an AID list of all Agents on the System is returned
     //  -The list of Agents is looped through
-    //  -If any Agent names contain "DeliveryAgent", a new AgentData object is created using the AID of the agent
+    //  -If any Agent names contain "DeliveryAgent" and does not match an existing AgentData object, a new AgentData object is created using the AID of the agent
     //  -If no agents have been found, the done variable is set to true, and this behaviour terminates
     //  -Otherwise, an ACLMessage is created with its content requesting status
     //  -Each agent found is added as a receiver, then the message is sent
@@ -257,6 +291,8 @@ public class MasterRoutingAgent extends Agent {
     //      -The step variable is set to 2
     //
     //Step 2: Solve the CSP Problem, create and assign serialized inventories and paths, then send serialized inventories to Delivery Agents
+    //  -Checks the total capacity of all DAs is greater or equal to total weight of Items in masterInventory
+    //      -If less, terminates this behaviour
     //  -Runs the solveConstraintProblem() method
     //  -An ACLMessage object is created
     //  -Loops through the agents ArrayList
@@ -275,6 +311,7 @@ public class MasterRoutingAgent extends Agent {
     //      -If a success message is received
     //      -The json representation of the inventory stored in the AgentData object is serialized into an actual Inventory object and added to the AgentData
     //      -Each item in the AgentData's inventory is then removed from the masterInventory
+    //      -The json representation saved in the AgentData object is cleared
     //
     //Step 4: Send serialized paths to Delivery Agents
     //  -Creates a new ACLMessage
@@ -335,7 +372,19 @@ public class MasterRoutingAgent extends Agent {
                     //Find delivery agent based on agent type, rather than name
                     for(int i = 0; i < a.length; i++) {
                         if(a[i].getName().toString().contains("DeliveryAgent")) {
-                            agents.add(new AgentData(a[i].getName()));
+                            boolean newAgent = true;
+                            for(AgentData agent: agents) {
+                                if(agent.matchData(a[i].getName())) {
+                                    newAgent = false;
+                                }
+                            }
+                            if(newAgent) {
+                                agents.add(new AgentData(a[i].getName()));
+                                System.out.println(myAgent.getLocalName() + ": Created AgentData for " + a[i].getName());
+                            }
+                            else {
+                                System.out.println(myAgent.getLocalName() + ": AgentData already exists for " + a[i].getName());
+                            }
                         }
                     }
 
@@ -410,9 +459,21 @@ public class MasterRoutingAgent extends Agent {
                     break;
 
                 case 2:
-                    System.out.println(getLocalName() + ": Allocating Inventories and Paths to Each Delivery Agent");
+                    //Total Weight of all Items in masterInventory
+                    int weightTotal = masterInventory.getTotalWeight();
 
-                    //TODO: Terminate here if total weight of packages exceeds total capacity of all delivery agents
+                    //Total Capacity of all Delivery Agents
+                    int capacityTotal = 0;
+                    for(AgentData agent: agents) {
+                        capacityTotal += agent.getCapacity();
+                    }
+
+                    if(weightTotal > capacityTotal) {
+                        System.out.println(myAgent.getLocalName() + ": Mismatch in Total DA Capacity and Total Inventory Weight. Stopping this Behaviour");
+                        done = true;
+                    }
+
+                    System.out.println(getLocalName() + ": Allocating Inventories and Paths to Each Delivery Agent");
 
                     //Solve the constraint problem, and terminate if no solution is found
                     if(!solveConstraintProblem()) {
@@ -458,8 +519,9 @@ public class MasterRoutingAgent extends Agent {
                             for (AgentData agent: agents) {
                                 if (agent.matchData(inventory_response.getSender())) {
                                     if(inventory_response.getContent().equals(Message.INVENTORY_SUCCESS)) {
-                                        //Set the local copy of the agents inventory
+                                        //Set the local copy of the agents inventory and clear the jsonRepresentation
                                         agent.inventory.addInventory(Inventory.deserialize(agent.getJsonInventory()));
+                                        agent.clearJsonInventory();
                                         for(Item item: agent.inventory.getItems()) {
                                             //Remove each item given to the agent from the master inventory
                                             if(!masterInventory.removeItem(item.getId())) {
@@ -544,18 +606,19 @@ public class MasterRoutingAgent extends Agent {
                                 if(agent.matchData(path_response.getSender())) {
                                     //Set the path in AgentData Object here, but we don't need to do anything in here for now.
                                     //I don't think we need to keep track of the Delivery Agents Path, so this is ultimately unnecessary
-                                }
-                            }
-                            if(path_response.getContent().equals(Message.PATH_SUCCESS)) {
-                                //Do Nothing, this is what we want
-                            }
-                            else if(path_response.getContent().equals(Message.PATH_FAILURE)) {
-                                try {
-                                    throw new Exception(myAgent.getLocalName() + ": ERROR - " + path_response.getSender().toString() + " could not load supplied path");
-                                } catch (Exception ex) {
-                                    ex.printStackTrace();
-                                    System.out.println(myAgent.getLocalName() + ": An Error Has Occurred. Stopping this behaviour");
-                                    done = true;
+                                    if(path_response.getContent().equals(Message.PATH_SUCCESS)) {
+                                        //Clear the json Representation
+                                        agent.clearJsonPath();
+                                    }
+                                    else if(path_response.getContent().equals(Message.PATH_FAILURE)) {
+                                        try {
+                                            throw new Exception(myAgent.getLocalName() + ": ERROR - " + path_response.getSender().toString() + " could not load supplied path");
+                                        } catch (Exception ex) {
+                                            ex.printStackTrace();
+                                            System.out.println(myAgent.getLocalName() + ": An Error Has Occurred. Stopping this behaviour");
+                                            done = true;
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -633,6 +696,7 @@ public class MasterRoutingAgent extends Agent {
         //Node ID of each Items destination
         //Not in Use at the moment, but could be useful later on.
         int[] dest;
+
         ArrayList<Integer> temp = new ArrayList<>();
         for(Item item: masterInventory.getItems()) {
             temp.add(item.getDestination());
@@ -646,6 +710,14 @@ public class MasterRoutingAgent extends Agent {
             temp.add(item.getWeight());
         }
         weight = temp.stream().mapToInt(o -> o).toArray();
+        temp.clear();
+
+        //Distance from each Item's Location to Node 0
+        int[] roughDistances;
+        for(Item item: masterInventory.getItems()) {
+            temp.add(mapDist[0][item.getDestination()]);
+        }
+        roughDistances = temp.stream().mapToInt(o -> o).toArray();
         temp.clear();
 
         //Number of Delivery Agents
@@ -681,7 +753,46 @@ public class MasterRoutingAgent extends Agent {
         //The Value of these variables is calculated with a SCALAR constraint
         IntVar[] Tot_Weights = new IntVar[D];
         for(int i = 0; i < D; i++) {
-            Tot_Weights[i] = model.intVar("DA " + i + "Capacity", 0, IntVar.MAX_INT_BOUND);
+            Tot_Weights[i] = model.intVar("DA " + i + "Capacity", 0, da_capacity[i]);
+        }
+
+        //Int Variable for the total "rough" distance of each path
+        //eg; Tot_RoughPath[i] is the total rough path distance of packages assigned to DA i
+        //The Value of these variables is calculated with a SCALAR constraint
+        IntVar[] Tot_RoughPath = new IntVar[D];
+        for(int i = 0; i < D; i++) {
+            Tot_RoughPath[i] = model.intVar("DA " + i + " RoughPath", 0, IntVar.MAX_INT_BOUND);
+        }
+
+        //Int Variable for the total number of packages assigned to each DA
+        //eg; Tot_Packages[i] is the total number of packages assigned to DA i
+        //The Value of these variables is calculated with a SCALAR constraint, using Packages_Coeff as its coefficients
+        IntVar[] Tot_Packages = new IntVar[D];
+        for(int i = 0; i < D; i++) {
+            Tot_Packages[i] = model.intVar("DA " + i + " Package Total", 0, IntVar.MAX_INT_BOUND);
+        }
+
+        //Single IntVar to be used as a total of all rough paths
+        //This variable will be used as the "objective" in the code
+        //The value will be calculated in a SCALAR constraint, using Path_Total_Coeff as its coefficients
+        IntVar Path_Total = model.intVar("Total Path Length", 0, IntVar.MAX_INT_BOUND);
+
+        //TODO: Find a better method of totalling variables
+        //Scalar Coefficient Arrays
+        //As a SCALAR constraint requires the number of coefficients and variables to be the same,
+        //to use a SCALAR constraint to sum variables (which I'm not sure is even a good idea, but it works),
+        //all the coefficients need to be 1.
+
+        //Array of length P (number of packages)
+        int[] Packages_Coeff = new int [P];
+        for(int i = 0; i < P; i++) {
+            Packages_Coeff[i] = 1;
+        }
+
+        //Array of length D (number of DAs)
+        int[] Path_Total_Coeff = new int[D];
+        for(int i = 0; i < D; i++) {
+            Path_Total_Coeff[i] = 1;
         }
 
         //Constraints
@@ -698,23 +809,37 @@ public class MasterRoutingAgent extends Agent {
             //This calculates the total weight of packages assigned to DA i
             model.scalar(column, weight, "=", Tot_Weights[i]).post();
 
+            //Total number of packages assigned to DA i
+            model.scalar(column, Packages_Coeff, "=", Tot_Packages[i]);
+
             //Total Weight of DA i, cannot exceed capacity of DA i
             model.arithm(Tot_Weights[i], "<=", da_capacity[i]).post();
+
+            //This calculates the total rough path of packages assigned to DA i
+            model.scalar(column, roughDistances, "=", Tot_RoughPath[i]).post();
             
             //Naive constraint
             //Helps better spread the packages among the DAs, works only when DAs have same or very similar capacities
-            model.arithm(Tot_Weights[i], ">=", averageWeightPerDA).post();
+            //model.arithm(Tot_Weights[i], ">=", averageWeightPerDA).post();
 
             //This constraint limits the number of packages a DA can be assigned to 3.
             //If we want to implement limits on the number of packages a DA can hold, we can replace the three with a value pertaining to each DA
             //model.sum(column, "=", 3).post();
         }
 
+        //Sum of all Tot_RoughPath variables into the Path_Total variable
+        model.scalar(Tot_RoughPath, Path_Total_Coeff, "=", Path_Total).post();
+
         //The Solver
         //TODO: Expand this code so that:
         // More than one solution is looked at
         // This behaviour terminates if there is no valid solution
+
+        //TODO: Change this to get Best
         Solver solver = model.getSolver();
+        //Not working at the moment
+        //Solution solution = solver.findOptimalSolution(Path_Total, false);
+
         Solution solution = solver.findSolution();
 
         //TODO: Replace this with the in-built choco function that determines if a solution cannot be found
