@@ -1,6 +1,5 @@
 package Agent;
 
-
 import Agent.AgentInfo.AgentData;
 import Communication.Message;
 import DeliveryPath.Path;
@@ -27,7 +26,7 @@ import static org.chocosolver.util.tools.StatisticUtils.sum;
 
 public class MasterRoutingAgent extends Agent {
 
-    private GraphGen graphGen = new GraphGen();
+    //private GraphGen graphGen = new GraphGen(5);
 
     //Collection of AgentData Objects, to keep track of the state of each DA this Agent is aware of
     private ArrayList<AgentData> agents = new ArrayList<>();
