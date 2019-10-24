@@ -338,6 +338,7 @@ public class MasterRoutingAgent extends Agent implements MyAgentInterface {
 
                     //Make Sure Map Data has been assigned
                     if(graph == null) {
+                        System.out.println(getLocalName() + ": Map Data Has Not Been Assigned Yet. Stopping Behaviour");
                         finishBehaviour();
                         break;
                     }
