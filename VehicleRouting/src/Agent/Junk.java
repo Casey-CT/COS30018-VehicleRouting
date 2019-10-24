@@ -27,6 +27,7 @@ public class Junk {
         ArrayList<DeliveryAgentInterface> DAo2aList = new ArrayList<>();
         Object[] argss = {(Integer) 50};
         AgentController DACtrl = mainCtrl.createNewAgent("DeliveryAgent" + agentInt, DeliveryAgent.class.getName(), argss);
+        Thread.sleep(5000);
         DACtrl.start();
         Thread.sleep(5000);
         DAo2a = DACtrl.getO2AInterface(DeliveryAgentInterface.class);
@@ -37,9 +38,9 @@ public class Junk {
         String s="";
         while(i < DAo2aList.size()) {
             s = DAo2aList.get(i).getData();
-//                        s + " " + DAo2aList.get(i).getData();
-//                        s + " " + toString(DAo2aList[i].getData());
-//                        DAo2aList
+            s = " " + DAo2aList.get(i).getData();
+            //s = " " + toString(DAo2aList[i].getData());
+                        
             System.out.println(s);
         }
     }
