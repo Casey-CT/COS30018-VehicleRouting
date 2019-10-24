@@ -4,6 +4,7 @@ import Agent.AgentInfo.AgentData;
 import Communication.Message;
 import DeliveryPath.Path;
 import GraphGeneration.GraphGen;
+import GUI.MyAgentInterface;
 import Item.Inventory;
 import Item.Item;
 import jade.core.Agent;
@@ -26,7 +27,7 @@ import java.util.Scanner;
 
 import static org.chocosolver.util.tools.StatisticUtils.sum;
 
-public class MasterRoutingAgent extends Agent {
+public class MasterRoutingAgent extends Agent implements MyAgentInterface {
 
     //Collection of AgentData Objects, to keep track of the state of each DA this Agent is aware of
     private ArrayList<AgentData> agents = new ArrayList<>();
@@ -224,6 +225,7 @@ public class MasterRoutingAgent extends Agent {
         }catch(Exception ex){System.out.println("Sleeping caused an error");}
 
         addBehaviour(new processRoutes());
+        //registerO2AInterface(MyAgentInterface.class, this);
     }
 
     //TODO: Comment each individual message interpretation
@@ -1105,4 +1107,10 @@ public class MasterRoutingAgent extends Agent {
 
         return result;
     }
+
+    @Override
+    public void StartMasterAgent() {
+        addBehaviour(new processRoutes());
+    }
+
 }

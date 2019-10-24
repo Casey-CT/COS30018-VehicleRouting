@@ -2,6 +2,7 @@ package Agent;
 
 import Communication.Message;
 import DeliveryPath.Path;
+import GUI.DeliveryAgentInterface;
 import Item.Inventory;
 import Item.Item;
 import jade.core.AID;
@@ -17,8 +18,7 @@ import jade.domain.FIPAAgentManagement.ServiceDescription;
 
 import java.util.*;
 
-public class DeliveryAgent extends Agent {
-
+public class DeliveryAgent extends Agent implements DeliveryAgentInterface {
     //This agents capacity (compared against the weight of the items in its inventory)
     //Has a default value of 0, so if capacity is not specified when an agent of this type is spun up, it can be terminated easily
     private int capacity = 0;
@@ -47,6 +47,14 @@ public class DeliveryAgent extends Agent {
     //Returns the node ID of this agents current location
     public int getCurrentLocation() {
         return currentLocation;
+    }
+
+    @Override
+    public String getData() {
+        String s = "asdfjadf;klajsdf;l";
+
+
+        return s;
     }
 
     protected void setup() {
