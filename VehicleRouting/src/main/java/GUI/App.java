@@ -54,6 +54,7 @@ public class App {
     private JPopupMenu DACapacityPopup = new JPopupMenu();
 
     private int capacityInt;
+    private String tempString;
 
     private JPanel mainPanel;
     private int agentInt;
@@ -65,6 +66,24 @@ public class App {
 
     public App() throws StaleProxyException, InterruptedException {
         //Init
+        JOptionPane.showMessageDialog(null, "Welcome to VehicleRouting");
+
+
+        tempString = JOptionPane.showInputDialog(frame,"Enter Nodes", null);
+        Thread.sleep(10);
+
+        tempString = JOptionPane.showInputDialog(frame,"Enter Minimum Connections", null);
+        Thread.sleep(10);
+
+        tempString = JOptionPane.showInputDialog(frame,"Enter Maximum Connections", null);
+        Thread.sleep(10);
+
+        tempString = JOptionPane.showInputDialog(frame,"Enter Minimum Distance", null);
+        Thread.sleep(10);
+
+        tempString = JOptionPane.showInputDialog(frame,"Enter Maximum Distance", null);
+        Thread.sleep(10);
+
         Runtime rt = Runtime.instance();
         Profile pMain = new ProfileImpl(null, 8888, null);
         ContainerController mainCtrl = rt.createMainContainer(pMain);
