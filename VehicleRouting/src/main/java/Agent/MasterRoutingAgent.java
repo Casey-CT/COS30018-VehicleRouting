@@ -21,12 +21,12 @@ import org.chocosolver.solver.variables.BoolVar;
 import org.chocosolver.solver.variables.IntVar;
 
 import java.util.ArrayList;
+import java.util.Random;
+import java.util.Scanner;
 
 import static org.chocosolver.util.tools.StatisticUtils.sum;
 
 public class MasterRoutingAgent extends Agent {
-
-    //private GraphGen graphGen = new GraphGen(5);
 
     //Collection of AgentData Objects, to keep track of the state of each DA this Agent is aware of
     private ArrayList<AgentData> agents = new ArrayList<>();
@@ -125,28 +125,96 @@ public class MasterRoutingAgent extends Agent {
         masterInventory.addItem(new Item(17, "Item17", 2, 16, 1));
         masterInventory.addItem(new Item(18, "Item18", 4, 5, 1));
 
-        //TODO: Replace this with the GraphGen code
-        //Dummy Map Data
-        //MapData
-        mapData = new int[][]{{0, 1, 0, 0, 3},
-                              {1, 0, 4, 0, 0},
-                              {0, 4, 0, 1, 0},
-                              {0, 0, 1, 0, 2},
-                              {3, 0, 0, 2, 0}};
+        int v, dMin, dMax, eMin, eMax;
+        boolean disGraph = true;
+        Random r = new Random();
+        Scanner sc = new Scanner(System.in);
+        GraphGen graph = null;
+        try {
+            v = graph.getNumNodes();
+            eMin = graph.getMinCon();
+            eMax = graph.getMaxCon();
 
-        //MapDist
-        mapDist = new int[][]{{0, 1, 5, 5, 3},
-                              {1, 0 ,4, 5, 4},
-                              {5, 4, 0, 1, 3},
-                              {5, 5, 1, 0, 2},
-                              {3, 4, 3, 2, 0}};
+            if (eMin > eMax) {
+                System.out.println("Minimum cannot be greater than Maximum");
+            }
+            dMin = graph.getMinDist();
+            dMax = graph.getMaxDist();
 
-        //MapPath
-        mapPaths = new int[][][]{{{}, {1}, {1, 2}, {4, 3}, {4}},
-                                 {{0}, {}, {2}, {2, 3}, {0, 4}},
-                                 {{1, 0}, {1}, {}, {3}, {3, 4}},
-                                 {{4, 0}, {2, 1}, {2}, {}, {4}},
-                                 {{0}, {0, 1}, {3, 2}, {3}, {}}};
+            if (dMin > dMax) {
+                System.out.println("Minimum cannot be greater than Maximum");
+            }
+            int failed_attempts = 0;
+            while (disGraph){
+                graph = graph.generateGraph(v, eMin, eMax, r, dMin, dMax);
+                try {
+                    disGraph = graph.primMST();
+                } catch (Exception E) {
+                    failed_attempts++;
+                    System.out.println("Graph was disconnected, Trying again: " + failed_attempts);
+                    disGraph = true;
+                }
+            }
+            for(int i = 0; i < v; i++){
+                for(int j = 0; j < v; j++){
+                    graph.dijkstra(graph.getMapData(), i, j);
+                }
+            }
+            System.out.println("EXPORTABLE 2D ARRAY:");
+            for (int i = 0; i < v; i++) {
+                for (int j = 0; j < v; j++)
+                    if (j == v-1){
+                        System.out.print(graph.getEdge(i, j) + "");
+                        System.out.println();
+                    }else{
+                        System.out.print(graph.getEdge(i, j) + ", ");
+                    }
+            }
+        } catch (Exception E) {
+            System.out.println("Something went wrong");
+        }
+        sc.close();
+
+        mapData = graph.getMapData();
+        mapDist = graph.getMapDist();
+        mapPaths = graph.getMapPaths();
+
+        /*
+        for(int i = 0; i < mapData.length; i++) {
+            for(int j = 0; j < mapData[i].length; j++) {
+                System.out.print(mapData[i][j] + " ");
+            }
+            System.out.println();
+        }
+
+        System.out.println();
+
+        for(int i = 0; i < mapDist.length; i++) {
+            for(int j = 0; j < mapDist[i].length; j++) {
+                System.out.print(mapDist[i][j] + " ");
+            }
+            System.out.println();
+        }
+
+        System.out.println();
+        for(int i = 0; i < mapPaths.length; i++) {
+            for(int j = 0; j < mapPaths[i].length; j++) {
+                System.out.print("{");
+                for(int k = 0; k < mapPaths[i][j].length; k++) {
+                    System.out.print(mapPaths[i][j][k] + ",");
+                }
+                System.out.print("}");
+            }
+            System.out.println();
+        }
+
+        System.out.println("MAP DATA 2,5: " + mapData[2][5]);
+        System.out.println("MAP DIST 2,5: " + mapDist[2][5]);
+        for (int i = 0; i < 7; i++) {
+            System.out.println("MAP PATH 2,5: " + mapPaths[2][5][i]);
+        }
+
+         */
 
         //Sleeping, To Give Jade time to start up.
         //Probably can remove, once the graph generation stuff is hooked up as it will cause enough delay that this isn't needed
