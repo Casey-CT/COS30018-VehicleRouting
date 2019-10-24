@@ -54,7 +54,13 @@ public class App {
     private JPopupMenu DACapacityPopup = new JPopupMenu();
 
     private int capacityInt;
-    private String tempString;
+
+    private String tempNode;
+    private String tempMinCon;
+    private String tempMaxCon;
+    private String tempMinDist;
+    private String tempMaxDist;
+
 
     private JPanel mainPanel;
     private int agentInt;
@@ -66,40 +72,43 @@ public class App {
 
     public App() throws StaleProxyException, InterruptedException {
         //Init
+
+
         JOptionPane.showMessageDialog(null, "Welcome to VehicleRouting");
 
 
-        tempString = JOptionPane.showInputDialog(frame,"Enter Nodes", null);
+        tempNode = JOptionPane.showInputDialog(frame,"Enter Nodes", null);
         Thread.sleep(10);
 
-        tempString = JOptionPane.showInputDialog(frame,"Enter Minimum Connections", null);
+        tempMinCon = JOptionPane.showInputDialog(frame,"Enter Minimum Connections", null);
         Thread.sleep(10);
 
-        tempString = JOptionPane.showInputDialog(frame,"Enter Maximum Connections", null);
+        tempMaxCon = JOptionPane.showInputDialog(frame,"Enter Maximum Connections", null);
         Thread.sleep(10);
 
-        tempString = JOptionPane.showInputDialog(frame,"Enter Minimum Distance", null);
+        tempMinDist = JOptionPane.showInputDialog(frame,"Enter Minimum Distance", null);
         Thread.sleep(10);
 
-        tempString = JOptionPane.showInputDialog(frame,"Enter Maximum Distance", null);
+        tempMaxDist = JOptionPane.showInputDialog(frame,"Enter Maximum Distance", null);
         Thread.sleep(10);
+
+
 
         Runtime rt = Runtime.instance();
         Profile pMain = new ProfileImpl(null, 8888, null);
         ContainerController mainCtrl = rt.createMainContainer(pMain);
         Thread.sleep(1000);
         AgentController AgentCtrl = mainCtrl.createNewAgent("MasterRoutingAgent", MasterRoutingAgent.class.getName(), new Object[0]);
-        o2a = AgentCtrl.getO2AInterface(MasterRoutingAgent.class);
+
 
         try {
             System.out.println(AgentCtrl.getName() + ": Activating RoutingAgent");
 
             AgentCtrl.start();
             Thread.sleep(2000);
-//            DAo2a =
             o2a = AgentCtrl.getO2AInterface(GUI.MyAgentInterface.class);
+            o2a.GenerateMap(Integer.parseInt(tempNode), Integer.parseInt(tempMinCon) ,Integer.parseInt(tempMaxCon), Integer.parseInt(tempMinDist), Integer.parseInt(tempMaxDist));
 
-//            GUI.MyAgentInterface mAIObject =
 
 
         }
