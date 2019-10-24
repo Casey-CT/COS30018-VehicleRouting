@@ -3,9 +3,7 @@ package GUI;
 import Item.Item;
 
 public interface MyAgentInterface {
-
-//    public void AddItemToInventory(Item i);
-    public void StartMasterAgent();
-//    public void StopMasterAgent();
-//    public void GenerateMap();
+    void StartMasterAgent();
+    boolean AddItemToInventory(Item i);
+    void GenerateMap(int v, int dMin, int dMax, int eMin, int eMax);
 }

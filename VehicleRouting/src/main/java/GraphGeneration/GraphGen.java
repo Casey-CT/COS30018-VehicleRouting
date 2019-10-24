@@ -284,4 +284,113 @@ public class GraphGen {
         }
         return graphTemp;
     }
+
+    public static GraphGen createGraph() {
+        int v, dMin, dMax, eMin, eMax;
+        boolean disGraph = true;
+        Random r = new Random();
+        Scanner sc = new Scanner(System.in);
+        GraphGen graph = null;
+
+        try {
+            v = getNumNodes();
+            eMin = getMinCon();
+            eMax = getMaxCon();
+
+            if (eMin > eMax) {
+                System.out.println("Minimum cannot be greater than Maximum");
+            }
+            dMin = getMinDist();
+            dMax = getMaxDist();
+
+            if (dMin > dMax) {
+                System.out.println("Minimum cannot be greater than Maximum");
+            }
+            int failed_attempts = 0;
+            while (disGraph){
+                graph = generateGraph(v, eMin, eMax, r, dMin, dMax);
+                try {
+                    disGraph = graph.primMST();
+                } catch (Exception E) {
+                    failed_attempts++;
+                    System.out.println("Graph was disconnected, Trying again: " + failed_attempts);
+                    disGraph = true;
+                }
+            }
+            for(int i = 0; i < v; i++){
+                for(int j = 0; j < v; j++){
+                    graph.dijkstra(graph.getMapData(), i, j);
+                }
+            }
+            System.out.println("EXPORTABLE 2D ARRAY:");
+            for (int i = 0; i < v; i++) {
+                for (int j = 0; j < v; j++)
+                    if (j == v-1){
+                        System.out.print(graph.getEdge(i, j) + "");
+                        System.out.println();
+                    }else{
+                        System.out.print(graph.getEdge(i, j) + ", ");
+                    }
+            }
+        } catch (Exception E) {
+            System.out.println("Something went wrong");
+        }
+        sc.close();
+
+        return graph;
+    }
+
+    public static GraphGen autoGenerate(int v, int dMin, int dMax, int eMin, int eMax) {
+        boolean disGraph = true;
+        Random r = new Random();
+
+        GraphGen graph = null;
+
+        try {
+            if (eMin > eMax) {
+                System.out.println("Minimum cannot be greater than Maximum");
+                eMax = eMin + 1;
+            }
+
+            if (dMin > dMax) {
+                System.out.println("Minimum cannot be greater than Maximum");
+                dMax = dMin + 1;
+            }
+
+            int failed_attempts = 0;
+            while (disGraph){
+                graph = generateGraph(v, eMin, eMax, r, dMin, dMax);
+                try {
+                    disGraph = graph.primMST();
+                } catch (Exception E) {
+                    failed_attempts++;
+                    System.out.println("Graph was disconnected, Trying again: " + failed_attempts);
+                    disGraph = true;
+                }
+            }
+
+            for(int i = 0; i < v; i++){
+                for(int j = 0; j < v; j++){
+                    graph.dijkstra(graph.getMapData(), i, j);
+                }
+            }
+
+            System.out.println("EXPORTABLE 2D ARRAY:");
+
+            for (int i = 0; i < v; i++) {
+                for (int j = 0; j < v; j++)
+                    if (j == v-1){
+                        System.out.print(graph.getEdge(i, j) + "");
+                        System.out.println();
+                    }else{
+                        System.out.print(graph.getEdge(i, j) + ", ");
+                    }
+            }
+
+        } catch (Exception E) {
+            System.out.println("Something went wrong");
+        }
+
+        return graph;
+    }
 }
