@@ -105,6 +105,8 @@ public class MasterRoutingAgent extends Agent implements MyAgentInterface {
     protected void setup() {
         System.out.println(getAID().getLocalName() + ": I have been created");
 
+        registerO2AInterface(MyAgentInterface.class, this);
+
         //TODO: Remove this Dummy Data
         //Dummy Item Data
         masterInventory.addItem(new Item(1, "Item1", 2, 12, 1));
@@ -224,9 +226,8 @@ public class MasterRoutingAgent extends Agent implements MyAgentInterface {
             Thread.sleep(2000);
         }catch(Exception ex){System.out.println("Sleeping caused an error");}
 
-        addBehaviour(new processRoutes());
-
-        registerO2AInterface(MyAgentInterface.class, this);
+        //Commenting out the adding of this behaviour, as it will now be added by the GUI
+        //addBehaviour(new processRoutes());
     }
 
     //TODO: Comment each individual message interpretation

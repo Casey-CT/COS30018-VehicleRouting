@@ -14,7 +14,7 @@ public class Junk {
 
 
     public static void main(String[] args) throws InterruptedException, StaleProxyException {
-        
+
         Runtime rt = Runtime.instance();
         Profile pMain = new ProfileImpl(null, 8888, null);
         ContainerController mainCtrl = rt.createMainContainer(pMain);

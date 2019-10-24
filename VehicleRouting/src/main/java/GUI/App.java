@@ -57,16 +57,16 @@ public class App {
 
     private JPanel mainPanel;
     private int agentInt;
-    private GUI.MyAgentInterface o2a;
+    private MyAgentInterface o2a;
 
 
-    private GUI.DeliveryAgentInterface DAo2a;
+    private DeliveryAgentInterface DAo2a;
     private ArrayList<GUI.DeliveryAgentInterface> DAo2aList = new ArrayList<>();
 
     public App() throws StaleProxyException, InterruptedException {
         //Init
         Runtime rt = Runtime.instance();
-        Profile pMain = new ProfileImpl(null, 8888, null);
+        Profile pMain = new ProfileImpl(null, 1099, null);
         ContainerController mainCtrl = rt.createMainContainer(pMain);
         Thread.sleep(10000);
         AgentController AgentCtrl = mainCtrl.createNewAgent("MasterRoutingAgent", MasterRoutingAgent.class.getName(), new Object[0]);
@@ -77,7 +77,7 @@ public class App {
             AgentCtrl.start();
             Thread.sleep(2000);
 //            DAo2a =
-            o2a = AgentCtrl.getO2AInterface(GUI.MyAgentInterface.class);
+            o2a = AgentCtrl.getO2AInterface(MyAgentInterface.class);
 
 //            GUI.MyAgentInterface mAIObject =
 
