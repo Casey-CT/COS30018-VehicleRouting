@@ -51,7 +51,8 @@ public class DeliveryAgent extends Agent implements DeliveryAgentInterface {
 
     @Override
     public String getData() {
-        String s = "Success!";
+        String s = "Success! \n";
+        s = s + inventory.listItems();
 
         return s;
     }

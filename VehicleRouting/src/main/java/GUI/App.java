@@ -50,26 +50,27 @@ public class App {
     private JButton DeliveryAgentButton;
     private JButton CheckAgentButton;
     private JTextField DACapacity;
-//    JLayeredPane DACapacityPane = new JLayeredPane();
+    //    JLayeredPane DACapacityPane = new JLayeredPane();
     private JPopupMenu DACapacityPopup = new JPopupMenu();
 
     private int capacityInt;
 
     private JPanel mainPanel;
     private int agentInt;
-    private MyAgentInterface o2a;
+    private GUI.MyAgentInterface o2a;
 
 
-    private DeliveryAgentInterface DAo2a;
+    private GUI.DeliveryAgentInterface DAo2a;
     private ArrayList<GUI.DeliveryAgentInterface> DAo2aList = new ArrayList<>();
 
     public App() throws StaleProxyException, InterruptedException {
         //Init
         Runtime rt = Runtime.instance();
-        Profile pMain = new ProfileImpl(null, 1099, null);
+        Profile pMain = new ProfileImpl(null, 8888, null);
         ContainerController mainCtrl = rt.createMainContainer(pMain);
-        Thread.sleep(10000);
+        Thread.sleep(1000);
         AgentController AgentCtrl = mainCtrl.createNewAgent("MasterRoutingAgent", MasterRoutingAgent.class.getName(), new Object[0]);
+        o2a = AgentCtrl.getO2AInterface(MasterRoutingAgent.class);
 
         try {
             System.out.println(AgentCtrl.getName() + ": Activating RoutingAgent");
@@ -77,7 +78,7 @@ public class App {
             AgentCtrl.start();
             Thread.sleep(2000);
 //            DAo2a =
-            o2a = AgentCtrl.getO2AInterface(MyAgentInterface.class);
+            o2a = AgentCtrl.getO2AInterface(GUI.MyAgentInterface.class);
 
 //            GUI.MyAgentInterface mAIObject =
 
@@ -108,10 +109,11 @@ public class App {
             public void actionPerformed(ActionEvent e) {
                 try {
                     AgentCtrl.start();
+                    Thread.sleep(1000);
                     System.out.println(AgentCtrl.getName() + ": Beginning MasterAgent");
                     o2a.StartMasterAgent();
                 }
-                catch (StaleProxyException ex) {
+                catch (StaleProxyException | InterruptedException ex) {
                     ex.printStackTrace();
                 }
             }
@@ -133,7 +135,7 @@ public class App {
                     //ASSIGNING DAO2A AND THEN ADDING IT TO THE LIST
                     AgentController DACtrl = mainCtrl.createNewAgent("DeliveryAgent" + agentInt, DeliveryAgent.class.getName(), args);
                     DACtrl.start();
-                    Thread.sleep(5000);
+                    Thread.sleep(500);
                     DAo2a = DACtrl.getO2AInterface(DeliveryAgentInterface.class);
 
                     DAo2aList.add(DAo2a);
@@ -146,7 +148,7 @@ public class App {
 
 
 
-                System.out.println(DACtrl.getName() + agentInt + "Created DeliveryAgent");
+                    System.out.println(DACtrl.getName() + agentInt + "Created DeliveryAgent");
                 }
                 catch (StaleProxyException | InterruptedException ex) {
                     ex.printStackTrace();
@@ -156,6 +158,14 @@ public class App {
 
 
         //*3: CHECK FOR AGENT DETAILS BUTTON LISTENER
+        //TODO:
+        // GUI CONSOLE OUTPUT STRINGS AND NEWLINES
+        // ADD ITEM TO MASTERROUTER'S INVENTORY BY BUTTON
+        // MAPPING POPUP GUI INTERFACE (REPEATED POPUPS)
+        // SNIFFER AGENT (Console output)
+        // ASK ABOUT 40% EXTRA MARKS ON EXTENSION
+        // EXTENSION: IMAGE OF MAP TO GUI (Alex actually needs help send help please)
+        // EXTENSION: Animations
         CheckAgentButton.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -166,7 +176,7 @@ public class App {
 //                    final JButton btn = new JButton();
 //                    buttons.add(btn);
 //                    btn.addActionListener(new ActionListener() {
-                        //GET THE INFORMATION FROM THE LISTENER
+                //GET THE INFORMATION FROM THE LISTENER
 //                        @Override
 //                        public void actionPerformed(ActionEvent e) {
 //                            JLabel deliveryLabel = new JLabel();
@@ -211,19 +221,15 @@ public class App {
 //                }
                 try {
                     Thread.sleep(10);
-                    //capacityInt = Integer.parseInt(temp);
-                    Object[] args = {(Integer) capacityInt};
 
-                    int i=0;
-                    String s = "";
-                    while(i < DAo2aList.size()) {
-                        s = DAo2aList.get(i).getData();
-//                        s + " " + DAo2aList.get(i).getData();
-//                        s + " " + toString(DAo2aList[i].getData());
-//                        DAo2aList
-                        System.out.println(s);
+                    //capacityInt = Integer.parseInt(temp);
+                    System.out.println(DAo2aList.size());
+
+                    for(DeliveryAgentInterface d: DAo2aList) {
+                        System.out.println(d.getData());
                     }
-                    System.out.println(DAo2aList);
+
+                    // System.out.println(DAo2aList);
                 } catch (InterruptedException ex) {
                     ex.printStackTrace();
                 }
