@@ -14,12 +14,11 @@ public class Junk {
 
 
     public static void main(String[] args) throws InterruptedException, StaleProxyException {
-
-
+        
         Runtime rt = Runtime.instance();
         Profile pMain = new ProfileImpl(null, 8888, null);
         ContainerController mainCtrl = rt.createMainContainer(pMain);
-        Thread.sleep(10000);
+        Thread.sleep(2000);
 
 
         int agentInt = 0;
@@ -27,21 +26,17 @@ public class Junk {
         ArrayList<DeliveryAgentInterface> DAo2aList = new ArrayList<>();
         Object[] argss = {(Integer) 50};
         AgentController DACtrl = mainCtrl.createNewAgent("DeliveryAgent" + agentInt, DeliveryAgent.class.getName(), argss);
-        Thread.sleep(5000);
+        Thread.sleep(1000);
         DACtrl.start();
-        Thread.sleep(5000);
+        Thread.sleep(1000);
         DAo2a = DACtrl.getO2AInterface(DeliveryAgentInterface.class);
 
         DAo2aList.add(DAo2a);
 
-        int i=0;
-        String s="";
-        while(i < DAo2aList.size()) {
-            s = DAo2aList.get(i).getData();
-            s = " " + DAo2aList.get(i).getData();
-            //s = " " + toString(DAo2aList[i].getData());
-                        
-            System.out.println(s);
+        System.out.println(DAo2aList.size());
+
+        for(DeliveryAgentInterface d: DAo2aList) {
+            System.out.println(d.getData());
         }
     }
 }

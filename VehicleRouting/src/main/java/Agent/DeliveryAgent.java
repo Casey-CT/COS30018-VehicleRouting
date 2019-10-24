@@ -51,8 +51,7 @@ public class DeliveryAgent extends Agent implements DeliveryAgentInterface {
 
     @Override
     public String getData() {
-        String s = "asdfjadf;klajsdf;l";
-
+        String s = "Success!";
 
         return s;
     }
@@ -70,6 +69,8 @@ public class DeliveryAgent extends Agent implements DeliveryAgentInterface {
             System.out.println("No capacity specified!");
             doDelete();
         }
+
+        registerO2AInterface(DeliveryAgentInterface.class, this);
     }
 
     //Called by the ListenForMessages behaviour

@@ -225,7 +225,8 @@ public class MasterRoutingAgent extends Agent implements MyAgentInterface {
         }catch(Exception ex){System.out.println("Sleeping caused an error");}
 
         addBehaviour(new processRoutes());
-        //registerO2AInterface(MyAgentInterface.class, this);
+
+        registerO2AInterface(MyAgentInterface.class, this);
     }
 
     //TODO: Comment each individual message interpretation
