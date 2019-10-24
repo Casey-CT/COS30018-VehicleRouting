@@ -20,6 +20,8 @@ import java.awt.GridLayout;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.event.MouseMotionAdapter;
+import java.io.IOException;
+import java.io.OutputStream;
 import java.util.ArrayList;
 import javax.swing.SwingUtilities;
 import javax.swing.border.EmptyBorder;
@@ -52,6 +54,10 @@ public class App {
     private JTextField DACapacity;
     //    JLayeredPane DACapacityPane = new JLayeredPane();
     private JPopupMenu DACapacityPopup = new JPopupMenu();
+
+    private JTextArea testText;
+    private JScrollPane testScroll;
+    private OutputStream out;
 
     private int capacityInt;
 
@@ -100,6 +106,11 @@ public class App {
         Thread.sleep(1000);
         AgentController AgentCtrl = mainCtrl.createNewAgent("MasterRoutingAgent", MasterRoutingAgent.class.getName(), new Object[0]);
 
+        //TODO: TEXTAREA TEST
+        testText = new JTextArea(10, 20);
+        testScroll = new JScrollPane(testText);
+        out = createOutputStream();
+
 
         try {
             System.out.println(AgentCtrl.getName() + ": Activating RoutingAgent");
@@ -107,6 +118,8 @@ public class App {
             AgentCtrl.start();
             Thread.sleep(2000);
             o2a = AgentCtrl.getO2AInterface(GUI.MyAgentInterface.class);
+            o2a.OverwriteOutput(out);
+            Thread.sleep(1000);
             o2a.GenerateMap(Integer.parseInt(tempNode), Integer.parseInt(tempMinCon) ,Integer.parseInt(tempMaxCon), Integer.parseInt(tempMinDist), Integer.parseInt(tempMaxDist));
 
 
@@ -165,6 +178,9 @@ public class App {
                     DACtrl.start();
                     Thread.sleep(500);
                     DAo2a = DACtrl.getO2AInterface(DeliveryAgentInterface.class);
+
+                    //Overwrite Console Output
+                    DAo2a.OverwriteOutput(out);
 
                     DAo2aList.add(DAo2a);
 
@@ -287,6 +303,8 @@ public class App {
         mainPanel.add(DeliveryAgentButton, gbc);
         mainPanel.add(CheckAgentButton, gbc);
 
+        mainPanel.add(testScroll);
+
 
     }
     protected void paramStart() {
@@ -317,5 +335,34 @@ public class App {
 
     }
 
+    //Test Text Area Methods
+    private void updateTextArea(final String text) {
+        SwingUtilities.invokeLater(new Runnable() {
+            @Override
+            public void run() {
+                testText.append(text);
+            }
+        });
+    }
 
+    private OutputStream createOutputStream() {
+        OutputStream out = new OutputStream() {
+            @Override
+            public void write(int b) throws IOException {
+                updateTextArea(String.valueOf((char) b));
+            }
+
+            @Override
+            public void write(byte[] b) throws IOException {
+                updateTextArea(new String(b, 0, b.length));
+            }
+
+            @Override
+            public void write(byte[] b, int off, int len) throws IOException {
+                updateTextArea(new String(b, off, len));
+            }
+        };
+
+        return out;
+    }
 }

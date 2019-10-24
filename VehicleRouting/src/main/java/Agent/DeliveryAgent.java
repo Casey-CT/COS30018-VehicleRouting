@@ -16,6 +16,8 @@ import jade.domain.FIPAException;
 import jade.domain.FIPAAgentManagement.DFAgentDescription;
 import jade.domain.FIPAAgentManagement.ServiceDescription;
 
+import java.io.OutputStream;
+import java.io.PrintStream;
 import java.util.*;
 
 public class DeliveryAgent extends Agent implements DeliveryAgentInterface {
@@ -47,14 +49,6 @@ public class DeliveryAgent extends Agent implements DeliveryAgentInterface {
     //Returns the node ID of this agents current location
     public int getCurrentLocation() {
         return currentLocation;
-    }
-
-    @Override
-    public String getData() {
-        String s = "Success! \n";
-        s = s + inventory.listItems();
-
-        return s;
     }
 
     protected void setup() {
@@ -399,5 +393,19 @@ public class DeliveryAgent extends Agent implements DeliveryAgentInterface {
                 }
             }
         }
+    }
+
+    //Overwriting DeliveryAgentInterface Methods
+    @Override
+    public String getData() {
+        String s = "Success! \n";
+        s = s + inventory.listItems();
+
+        return s;
+    }
+
+    @Override
+    public void OverwriteOutput(OutputStream out) {
+        System.setOut(new PrintStream(out, true));
     }
 }

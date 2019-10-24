@@ -21,6 +21,8 @@ import org.chocosolver.solver.Solver;
 import org.chocosolver.solver.variables.BoolVar;
 import org.chocosolver.solver.variables.IntVar;
 
+import java.io.OutputStream;
+import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.Random;
 import java.util.Scanner;
@@ -1090,5 +1092,10 @@ public class MasterRoutingAgent extends Agent implements MyAgentInterface {
         else {
             System.out.println(getLocalName() + ": Map Already Generated!");
         }
+    }
+
+    @Override
+    public void OverwriteOutput(OutputStream out) {
+        System.setOut(new PrintStream(out, true));
     }
 }
