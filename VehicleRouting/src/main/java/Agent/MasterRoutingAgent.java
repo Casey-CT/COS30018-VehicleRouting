@@ -4,6 +4,7 @@ import Agent.AgentInfo.AgentData;
 import Communication.Message;
 import DeliveryPath.Path;
 import GraphGeneration.GraphGen;
+import GUI.MyAgentInterface;
 import Item.Inventory;
 import Item.Item;
 import jade.core.Agent;
@@ -20,13 +21,15 @@ import org.chocosolver.solver.Solver;
 import org.chocosolver.solver.variables.BoolVar;
 import org.chocosolver.solver.variables.IntVar;
 
+import java.io.OutputStream;
+import java.io.PrintStream;
 import java.util.ArrayList;
+import java.util.Random;
+import java.util.Scanner;
 
 import static org.chocosolver.util.tools.StatisticUtils.sum;
 
-public class MasterRoutingAgent extends Agent {
-
-    //private GraphGen graphGen = new GraphGen(5);
+public class MasterRoutingAgent extends Agent implements MyAgentInterface {
 
     //Collection of AgentData Objects, to keep track of the state of each DA this Agent is aware of
     private ArrayList<AgentData> agents = new ArrayList<>();
@@ -37,6 +40,12 @@ public class MasterRoutingAgent extends Agent {
 
     //Initial storage place of paths to be sent to DAs. Paths will likely be created based on the CSP solver, so this list will likely not be used, and can be removed
     private ArrayList<Path> paths = new ArrayList<>();
+
+    //Boolean flag, to make sure additional processing behaviour aren't added
+    private Boolean processing = false;
+
+    //GraphGen Object, for generating the Map Data arrays
+    private GraphGen graph;
 
     //Map Data
     //2D Array of Direct Connections between nodes.
@@ -104,6 +113,8 @@ public class MasterRoutingAgent extends Agent {
     protected void setup() {
         System.out.println(getAID().getLocalName() + ": I have been created");
 
+        registerO2AInterface(MyAgentInterface.class, this);
+
         //TODO: Remove this Dummy Data
         //Dummy Item Data
         masterInventory.addItem(new Item(1, "Item1", 2, 12, 1));
@@ -125,37 +136,8 @@ public class MasterRoutingAgent extends Agent {
         masterInventory.addItem(new Item(17, "Item17", 2, 16, 1));
         masterInventory.addItem(new Item(18, "Item18", 4, 5, 1));
 
-        //TODO: Replace this with the GraphGen code
-        //Dummy Map Data
-        //MapData
-        mapData = new int[][]{{0, 1, 0, 0, 3},
-                              {1, 0, 4, 0, 0},
-                              {0, 4, 0, 1, 0},
-                              {0, 0, 1, 0, 2},
-                              {3, 0, 0, 2, 0}};
-
-        //MapDist
-        mapDist = new int[][]{{0, 1, 5, 5, 3},
-                              {1, 0 ,4, 5, 4},
-                              {5, 4, 0, 1, 3},
-                              {5, 5, 1, 0, 2},
-                              {3, 4, 3, 2, 0}};
-
-        //MapPath
-        mapPaths = new int[][][]{{{}, {1}, {1, 2}, {4, 3}, {4}},
-                                 {{0}, {}, {2}, {2, 3}, {0, 4}},
-                                 {{1, 0}, {1}, {}, {3}, {3, 4}},
-                                 {{4, 0}, {2, 1}, {2}, {}, {4}},
-                                 {{0}, {0, 1}, {3, 2}, {3}, {}}};
-
-        //Sleeping, To Give Jade time to start up.
-        //Probably can remove, once the graph generation stuff is hooked up as it will cause enough delay that this isn't needed
-        //Secondly, the GUI will not be interactible until after this is created, so this is probable unnecessary once it is hooked up to the GUI
-        try{
-            Thread.sleep(2000);
-        }catch(Exception ex){System.out.println("Sleeping caused an error");}
-
-        addBehaviour(new processRoutes());
+        //Commenting out the adding of this behaviour, as it will now be added by the GUI
+        //addBehaviour(new processRoutes());
     }
 
     //TODO: Comment each individual message interpretation
@@ -356,6 +338,13 @@ public class MasterRoutingAgent extends Agent {
                 case 0:
                     System.out.println(getLocalName() + ": Finding Delivery Agents");
 
+                    //Make Sure Map Data has been assigned
+                    if(graph == null) {
+                        System.out.println(getLocalName() + ": Map Data Has Not Been Assigned Yet. Stopping Behaviour");
+                        finishBehaviour();
+                        break;
+                    }
+
                     //Find all Delivery Agents with AMS
                     //Send them a request for their information
                     AMSAgentDescription[] a = null;
@@ -368,7 +357,7 @@ public class MasterRoutingAgent extends Agent {
                         System.out.println(myAgent.getLocalName() + ": AMS ERROR while Finding Delivery Agents" + ex );
                         ex.printStackTrace();
                         System.out.println(myAgent.getLocalName() + ": An Error Has Occurred. Stopping this behaviour");
-                        done = true;
+                        finishBehaviour();
                     }
 
                     //TODO: Find a more reliable solution for this
@@ -417,7 +406,7 @@ public class MasterRoutingAgent extends Agent {
                     }
                     else {
                         System.out.println("No Agents Found");
-                        done = true;
+                        finishBehaviour();
                     }
 
                     break;
@@ -443,7 +432,7 @@ public class MasterRoutingAgent extends Agent {
                             } catch (Exception ex){
                                 ex.printStackTrace();
                                 System.out.println(myAgent.getLocalName() + ": An Error Has Occurred. Stopping this behaviour");
-                                done = true;
+                                finishBehaviour();
                             }
                         }
 
@@ -473,7 +462,7 @@ public class MasterRoutingAgent extends Agent {
 
                     if(weightTotal > capacityTotal) {
                         System.out.println(myAgent.getLocalName() + ": Mismatch in Total DA Capacity and Total Inventory Weight. Stopping this Behaviour");
-                        done = true;
+                        finishBehaviour();
                     }
 
                     System.out.println(getLocalName() + ": Allocating Inventories and Paths to Each Delivery Agent");
@@ -481,7 +470,7 @@ public class MasterRoutingAgent extends Agent {
                     //Solve the constraint problem, and terminate if no solution is found
                     if(!solveConstraintProblem()) {
                         System.out.println(getLocalName() + ": No Solution Found. Stopping this Behaviour");
-                        done = true;
+                        finishBehaviour();
                     }
 
                     System.out.println(getLocalName() + ": Inventories and Paths Created and Assigned");
@@ -533,7 +522,7 @@ public class MasterRoutingAgent extends Agent {
                                                 } catch (Exception ex) {
                                                     ex.printStackTrace();
                                                     System.out.println(myAgent.getLocalName() + ": An Error Has Occurred. Stopping this behaviour");
-                                                    done = true;
+                                                    finishBehaviour();
                                                 }
                                             }
                                         }
@@ -544,7 +533,7 @@ public class MasterRoutingAgent extends Agent {
                                         } catch (Exception ex) {
                                             ex.printStackTrace();
                                             System.out.println(myAgent.getLocalName() + ": An Error Has Occurred. Stopping this behaviour");
-                                            done = true;
+                                            finishBehaviour();
                                         }
                                     }
                                 }
@@ -556,7 +545,7 @@ public class MasterRoutingAgent extends Agent {
                             } catch (Exception ex){
                                 ex.printStackTrace();
                                 System.out.println(myAgent.getLocalName() + ": An Error Has Occurred. Stopping this behaviour");
-                                done = true;
+                                finishBehaviour();
                             }
                         }
 
@@ -619,7 +608,7 @@ public class MasterRoutingAgent extends Agent {
                                         } catch (Exception ex) {
                                             ex.printStackTrace();
                                             System.out.println(myAgent.getLocalName() + ": An Error Has Occurred. Stopping this behaviour");
-                                            done = true;
+                                            finishBehaviour();
                                         }
                                     }
                                 }
@@ -631,7 +620,7 @@ public class MasterRoutingAgent extends Agent {
                             } catch (Exception ex){
                                 ex.printStackTrace();
                                 System.out.println(myAgent.getLocalName() + ": An Error Has Occurred. Stopping this behaviour");
-                                done = true;
+                                finishBehaviour();
                             }
                         }
 
@@ -665,7 +654,7 @@ public class MasterRoutingAgent extends Agent {
 
                     System.out.println(getLocalName() + ": Delivery Agents Requested to Start");
 
-                    done = true;
+                    finishBehaviour();
 
                     //This Behaviour Has Finished, So start processing regular messages
                     //If this behaviour ever has to be rerun, remove the ListenForMessages behaviour
@@ -680,6 +669,11 @@ public class MasterRoutingAgent extends Agent {
 
         public boolean done() {
             return done;
+        }
+
+        public void finishBehaviour() {
+            done = true;
+            processing = false;
         }
     }
 
@@ -1036,5 +1030,72 @@ public class MasterRoutingAgent extends Agent {
         } else return 0;
 
         return result;
+    }
+
+    //Loops through each of the Map Data arrays, and outputs them to console
+    public void testMapData() {
+        for(int i = 0; i < mapData.length; i++) {
+            for(int j = 0; j < mapData[i].length; j++) {
+                System.out.print(mapData[i][j] + " ");
+            }
+            System.out.println();
+        }
+
+        System.out.println();
+
+        for(int i = 0; i < mapDist.length; i++) {
+            for(int j = 0; j < mapDist[i].length; j++) {
+                System.out.print(mapDist[i][j] + " ");
+            }
+            System.out.println();
+        }
+
+        System.out.println();
+        for(int i = 0; i < mapPaths.length; i++) {
+            for(int j = 0; j < mapPaths[i].length; j++) {
+                System.out.print("{");
+                for(int k = 0; k < mapPaths[i][j].length; k++) {
+                    System.out.print(mapPaths[i][j][k] + ",");
+                }
+                System.out.print("}");
+            }
+            System.out.println();
+        }
+    }
+
+    //Overriding of MyAgentInterface Methods
+    @Override
+    public void StartMasterAgent() {
+        if(!processing) {
+            processing = true;
+            addBehaviour(new processRoutes());
+        }
+    }
+
+    @Override
+    public boolean AddItemToInventory(Item i) {
+        return masterInventory.addItem(i);
+    }
+
+    @Override
+    public void GenerateMap(int v, int dMin, int dMax, int eMin, int eMax) {
+        if(graph == null) {
+            graph = GraphGen.autoGenerate(v, dMin, dMax, eMin, eMax);
+
+            mapData = graph.getMapData();
+            mapDist = graph.getMapDist();
+            mapPaths = graph.getMapPaths();
+
+            System.out.println(getLocalName() + ": Map Generated!");
+            //testMapData();
+        }
+        else {
+            System.out.println(getLocalName() + ": Map Already Generated!");
+        }
+    }
+
+    @Override
+    public void OverwriteOutput(OutputStream out) {
+        System.setOut(new PrintStream(out, true));
     }
 }

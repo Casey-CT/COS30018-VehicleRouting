@@ -2,6 +2,7 @@ package Agent;
 
 import Communication.Message;
 import DeliveryPath.Path;
+import GUI.DeliveryAgentInterface;
 import Item.Inventory;
 import Item.Item;
 import jade.core.AID;
@@ -15,10 +16,11 @@ import jade.domain.FIPAException;
 import jade.domain.FIPAAgentManagement.DFAgentDescription;
 import jade.domain.FIPAAgentManagement.ServiceDescription;
 
+import java.io.OutputStream;
+import java.io.PrintStream;
 import java.util.*;
 
-public class DeliveryAgent extends Agent {
-
+public class DeliveryAgent extends Agent implements DeliveryAgentInterface {
     //This agents capacity (compared against the weight of the items in its inventory)
     //Has a default value of 0, so if capacity is not specified when an agent of this type is spun up, it can be terminated easily
     private int capacity = 0;
@@ -62,6 +64,8 @@ public class DeliveryAgent extends Agent {
             System.out.println("No capacity specified!");
             doDelete();
         }
+
+        registerO2AInterface(DeliveryAgentInterface.class, this);
     }
 
     //Called by the ListenForMessages behaviour
@@ -389,5 +393,19 @@ public class DeliveryAgent extends Agent {
                 }
             }
         }
+    }
+
+    //Overwriting DeliveryAgentInterface Methods
+    @Override
+    public String getData() {
+        String s = "Success! \n";
+        s = s + inventory.listItems();
+
+        return s;
+    }
+
+    @Override
+    public void OverwriteOutput(OutputStream out) {
+        System.setOut(new PrintStream(out, true));
     }
 }
