@@ -107,7 +107,7 @@ public class App {
         AgentController AgentCtrl = mainCtrl.createNewAgent("MasterRoutingAgent", MasterRoutingAgent.class.getName(), new Object[0]);
 
         //TODO: TEXTAREA TEST
-        testText = new JTextArea(10, 20);
+        testText = new JTextArea(100, 200);
         testScroll = new JScrollPane(testText);
         out = createOutputStream();
 
