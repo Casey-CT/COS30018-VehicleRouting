@@ -1,8 +1,6 @@
 package Agent;
 
 import Agent.AgentInfo.AgentData;
-import Agent.AgentInfo.FitnessFunction;
-import Agent.AgentInfo.Node;
 import Communication.Message;
 import DeliveryPath.Path;
 import GraphGeneration.GraphGen;
@@ -22,18 +20,12 @@ import org.chocosolver.solver.Solution;
 import org.chocosolver.solver.Solver;
 import org.chocosolver.solver.variables.BoolVar;
 import org.chocosolver.solver.variables.IntVar;
-import org.jgap.*;
-import org.jgap.impl.DefaultConfiguration;
-import org.jgap.impl.DoubleGene;
-import org.jgap.impl.IntegerGene;
-import org.jgap.impl.Pool;
 
 import java.io.OutputStream;
 import java.io.PrintStream;
-import java.time.Duration;
-import java.time.Instant;
-import java.util.*;
-import java.util.stream.Collectors;
+import java.util.ArrayList;
+import java.util.Random;
+import java.util.Scanner;
 
 import static org.chocosolver.util.tools.StatisticUtils.sum;
 
@@ -846,133 +838,6 @@ public class MasterRoutingAgent extends Agent implements MyAgentInterface {
         //Solution solution = solver.findOptimalSolution(Path_Total, false);
 
         Solution solution = solver.findSolution();
-
-         int EVOLUTIONS = 2000;
-         int POPULATION_SIZE = 350;
-
-        ArrayList<Node> nodes = new ArrayList<>();
-
-        Node n1 = new Node(31, 73, 0, 5);
-        nodes.add(n1);
-        n1 = new Node(11, 67, 1, 4);
-        nodes.add(n1);
-        n1 = new Node(52, 96, 1, 3);
-        nodes.add(n1);
-        n1 = new Node(81, 29, 2, 11);
-        nodes.add(n1);
-        n1 = new Node(97, 62, 3, 5);
-        nodes.add(n1);
-        n1 = new Node(71, 5, 4, 19);
-        nodes.add(n1);
-        n1 = new Node(6, 56, 5, 17);
-        nodes.add(n1);
-        n1 = new Node(48, 50, 6, 16);
-        nodes.add(n1);
-        n1 = new Node(91, 17, 7, 12);
-        nodes.add(n1);
-        n1 = new Node(49, 68, 8, 20);
-        nodes.add(n1);
-        n1 = new Node(85, 29, 9, 8);
-        nodes.add(n1);
-        n1 = new Node(11, 16, 10, 4);
-        nodes.add(n1);
-        n1 = new Node(74, 98, 11, 7);
-        nodes.add(n1);
-        n1 = new Node(56, 37, 12, 16);
-        nodes.add(n1);
-        n1 = new Node(14, 81, 13, 12);
-        nodes.add(n1);
-        n1 = new Node(75, 61, 14, 3);
-        nodes.add(n1);
-        n1 = new Node(15, 33, 15, 10);
-        nodes.add(n1);
-        n1 = new Node(98, 8, 16, 18);
-        nodes.add(n1);
-
-         FitnessFunction f = new FitnessFunction(3, 10, 100);
-        f.setNodes(nodes);
-
-        Configuration configuration = new DefaultConfiguration();
-        configuration.setPreservFittestIndividual(true);
-        try {
-            configuration.setFitnessFunction(f);
-            configuration.setPopulationSize(POPULATION_SIZE);
-        } catch(InvalidConfigurationException e) {
-
-        }
-
-
-        final Gene[] genes = new Gene[2 * 10];
-        for (int i = 0; i < 10; i++) {
-            try {
-                genes[i] = new IntegerGene(configuration, 1, 3);
-                genes[i + 10] = new DoubleGene(configuration, 0, 45);//to keep order of nodes
-            } catch (InvalidConfigurationException e) {
-
-            }
-        }
-
-        Genotype population = null;
-
-        try {
-            configuration.setSampleChromosome(new Chromosome(configuration, genes));
-            population = Genotype.randomInitialGenotype(configuration);
-        } catch(InvalidConfigurationException e) {
-            System.out.println("Invalid configuration" + e.getMessage());
-        }
-
-        final Instant start = Instant.now();
-        System.out.println("Generations: " + EVOLUTIONS);
-        for (int i = 1; i <= EVOLUTIONS; i++) {
-            if (i % 100 == 0) {
-                final IChromosome bestSolution = population.getFittestChromosome();
-                System.out.println("Best fitness after " + i + " evolutions: " + bestSolution.getFitnessValue());
-                double total = 0;
-                final List<Double> demands = new ArrayList<>();
-                for (int j = 1; j <= 3; ++j) {
-                    final double distanceRoute = f.computeTotalDistance(j, bestSolution, f);
-                    total += distanceRoute;
-                }
-                System.out.println("Total distance: " + total);
-
-            }
-            population.evolve();
-        }
-
-        System.out.println("Execution time: " + Duration.between(start, Instant.now()));
-
-        final IChromosome bestSolution = population.getFittestChromosome();
-
-
-        System.out.println("Best fitness: " + bestSolution.getFitnessValue());
-        System.out.println("Result: ");
-        for (int i = 0; i < 2 * 10; i++) {
-            System.out.println((i + 1) + ". " + bestSolution.getGene(i).getAllele());
-        }
-
-        double total = 0.0;
-
-        for (int i = 1; i <= 3; ++i) {
-            final List<Integer> route = f.getPositions(i, bestSolution, f, true);
-            final double distanceRoute = f.computeTotalDistance(i, bestSolution, f);
-
-            List<Integer> list  = route;
-            final List<Integer> result = new ArrayList<>(Collections.singletonList(1));//source node
-            result.addAll(list.stream().map(aList -> aList + 1).collect(Collectors.toList()));
-
-
-            System.out.println("Vehicle #" + i + " :" + result);
-            System.out.println("Distance: " + distanceRoute);
-            total += distanceRoute;
-        }
-        System.out.println("Total distance: " + total);
-
-        try {
-            Thread.sleep(100000);
-        } catch (InterruptedException e) {
-
-        }
-
 
         //TODO: Replace this with the in-built choco function that determines if a solution cannot be found
         // Ideally, we should check total weight of packages compared to total capacity of DA's, etc before we get to the solver
