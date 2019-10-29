@@ -5,6 +5,7 @@ import Communication.Message;
 import DeliveryPath.Path;
 import GA.Location;
 import GraphGeneration.GraphGen;
+import GUI.MyAgentInterface;
 import Item.Inventory;
 import Item.Item;
 import jade.core.Agent;
@@ -23,6 +24,8 @@ import org.chocosolver.solver.variables.IntVar;
 import org.jgap.*;
 import org.jgap.impl.*;
 
+import java.io.OutputStream;
+import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -30,9 +33,7 @@ import java.util.stream.Collectors;
 
 import static org.chocosolver.util.tools.StatisticUtils.sum;
 
-public class MasterRoutingAgent extends Agent {
-
-    //private GraphGen graphGen = new GraphGen(5);
+public class MasterRoutingAgent extends Agent implements MyAgentInterface {
 
     //Collection of AgentData Objects, to keep track of the state of each DA this Agent is aware of
     private ArrayList<AgentData> agents = new ArrayList<>();
@@ -45,6 +46,9 @@ public class MasterRoutingAgent extends Agent {
     private ArrayList<Path> paths = new ArrayList<>();
 
     //Map Data
+    //GraphGen Object, for generating the Map Data Arrays
+    private GraphGen graph;
+
     //2D Array of Direct Connections between nodes.
     //A value of 0 means there is no direct connection.
     private int[][] mapData;
@@ -57,6 +61,9 @@ public class MasterRoutingAgent extends Agent {
     //Exclusive of first node, but inclusive of second node.
     //eg; mapPaths[i][j] = {k, l, j}.
     private int[][][] mapPaths;
+
+    //Boolean flag, to make sure additional processRoutes behaviours aren't added
+    private boolean processing = false;
 
     //Field Getters and Setters
     public ArrayList<AgentData> getAgents() {
@@ -110,6 +117,8 @@ public class MasterRoutingAgent extends Agent {
     protected void setup() {
         System.out.println(getAID().getLocalName() + ": I have been created");
 
+        registerO2AInterface(MyAgentInterface.class, this);
+
         //TODO: Remove this Dummy Data
         //Dummy Item Data
         masterInventory.addItem(new Item(1, "Item1", 2, 12, 1));
@@ -131,6 +140,7 @@ public class MasterRoutingAgent extends Agent {
         masterInventory.addItem(new Item(17, "Item17", 2, 16, 1));
         masterInventory.addItem(new Item(18, "Item18", 4, 5, 1));
 
+        /*
         //TODO: Replace this with the GraphGen code
         //Dummy Map Data
         //MapData
@@ -153,119 +163,114 @@ public class MasterRoutingAgent extends Agent {
                                  {{1, 0}, {1}, {}, {3}, {3, 4}},
                                  {{4, 0}, {2, 1}, {2}, {}, {4}},
                                  {{0}, {0, 1}, {3, 2}, {3}, {}}};
-
-        //Sleeping, To Give Jade time to start up.
-        //Probably can remove, once the graph generation stuff is hooked up as it will cause enough delay that this isn't needed
-        //Secondly, the GUI will not be interactible until after this is created, so this is probable unnecessary once it is hooked up to the GUI
-        try{
-            Thread.sleep(2000);
-        }catch(Exception ex){System.out.println("Sleeping caused an error");}
-
-        addBehaviour(new processRoutes());
+        */
+        //TODO: Remove
+        //Commenting out the adding of this behaviour, as it is now added by the GUI
+        //addBehaviour(new processRoutes());
     }
 
     //TODO: Comment each individual message interpretation
     //Behaviour that constantly loops, listening for messages
     //Works in the same way as the ListenForMessages behaviour in the DeliveryAgent class
     //
-    //This behaviour is only added when the ProcessRoutes behaviour has completed.
-    //Should the ProcessRoutes behaviour be required a second time, this behaviour will need to be blocked/removed.
-    private class ListenForMessages extends CyclicBehaviour {
+    //This behaviour doesn't do anything while the processing boolean flag is set to true
+    private class listenForMessages extends CyclicBehaviour {
         public void action() {
+            if(!processing) {
+                ACLMessage msg = myAgent.receive();
 
-            ACLMessage msg = myAgent.receive();
+                if (msg != null) {
+                    System.out.println(myAgent.getLocalName() + ": Message Received");
 
-            if (msg != null) {
-                System.out.println(myAgent.getLocalName() + ": Message Received");
+                    String messageContent = msg.getContent();
 
-                String messageContent = msg.getContent();
+                    if(msg.getPerformative() == ACLMessage.INFORM) {
 
-                if(msg.getPerformative() == ACLMessage.INFORM) {
-
-                    if(messageContent.contains(Message.ARRIVE)) {
-                        String[] splitContent = messageContent.split(":", 2);
-                        boolean set = false;
-                        for (AgentData agent: agents) {
-                            if(agent.matchData(msg.getSender())) {
-                                try{
-                                    agent.setCurrentLocation(Integer.parseInt(splitContent[1]));
-                                    System.out.println(myAgent.getLocalName() + ": " + agent.getName().getLocalName() + " has arrived at " + splitContent[1]);
-                                    set = true;
-                                } catch(Exception ex) {
-                                    ex.printStackTrace();
-                                }
-                            }
-                        }
-                        if(!set) {
-                            try {
-                                throw new Exception(myAgent.getLocalName() + ": Received Arrival Message From Unknown Delivery Agent.");
-                            } catch(Exception ex) {
-                                ex.printStackTrace();
-                            }
-                        }
-                    }
-                    else if(messageContent.contains(Message.DELIVERED)) {
-                        String[] splitContent = messageContent.split(":", 2);
-                        boolean set = false;
-                        for (AgentData agent: agents) {
-                            if(agent.matchData(msg.getSender())) {
-                                try{
-                                    set = agent.inventory.removeItem(Integer.parseInt(splitContent[1]));
-                                    System.out.println(myAgent.getLocalName() + ": " + agent.getName().getLocalName() + " has delivered package " + splitContent[1]);
-                                } catch(Exception ex) {
-                                    ex.printStackTrace();
-                                }
-                            }
-                        }
-                        if(!set) {
-                            try {
-                                throw new Exception(myAgent.getLocalName() + ": Received Package Delivered Message From Unknown Delivery Agent.");
-                            } catch(Exception ex) {
-                                ex.printStackTrace();
-                            }
-                        }
-                    }
-                    else if(messageContent.contains(Message.COMPLETE)) {
-                        boolean set = false;
-                        for (AgentData agent: agents) {
-                            if(agent.matchData(msg.getSender())) {
-                                try {
-                                    set = true;
-
-                                    if(agent.getCurrentLocation() != 0) {
-                                        int[] pathLoc = mapPaths[agent.getCurrentLocation()][0];
-                                        int[] pathDist = new int[pathLoc.length];
-
-                                        pathDist[0] = mapDist[agent.getCurrentLocation()][pathLoc[0]];
-                                        for(int i = 1; i < pathLoc.length; i++) {
-                                            pathDist[i] = mapDist[pathLoc[i - 1]][pathLoc[i]];
-                                        }
-
-                                        String jsonPath = new Path(pathLoc, pathDist).serialize();
-
-                                        ACLMessage reply = msg.createReply();
-                                        reply.setPerformative(ACLMessage.REQUEST);
-                                        reply.setContent(Message.RETURN + ":" + jsonPath);
-                                        myAgent.send(reply);
+                        if(messageContent.contains(Message.ARRIVE)) {
+                            String[] splitContent = messageContent.split(":", 2);
+                            boolean set = false;
+                            for (AgentData agent: agents) {
+                                if(agent.matchData(msg.getSender())) {
+                                    try{
+                                        agent.setCurrentLocation(Integer.parseInt(splitContent[1]));
+                                        System.out.println(myAgent.getLocalName() + ": " + agent.getName().getLocalName() + " has arrived at " + splitContent[1]);
+                                        set = true;
+                                    } catch(Exception ex) {
+                                        ex.printStackTrace();
                                     }
+                                }
+                            }
+                            if(!set) {
+                                try {
+                                    throw new Exception(myAgent.getLocalName() + ": Received Arrival Message From Unknown Delivery Agent.");
                                 } catch(Exception ex) {
                                     ex.printStackTrace();
                                 }
                             }
                         }
-                        if(!set) {
+                        else if(messageContent.contains(Message.DELIVERED)) {
+                            String[] splitContent = messageContent.split(":", 2);
+                            boolean set = false;
+                            for (AgentData agent: agents) {
+                                if(agent.matchData(msg.getSender())) {
+                                    try{
+                                        set = agent.inventory.removeItem(Integer.parseInt(splitContent[1]));
+                                        System.out.println(myAgent.getLocalName() + ": " + agent.getName().getLocalName() + " has delivered package " + splitContent[1]);
+                                    } catch(Exception ex) {
+                                        ex.printStackTrace();
+                                    }
+                                }
+                            }
+                            if(!set) {
+                                try {
+                                    throw new Exception(myAgent.getLocalName() + ": Received Package Delivered Message From Unknown Delivery Agent.");
+                                } catch(Exception ex) {
+                                    ex.printStackTrace();
+                                }
+                            }
+                        }
+                        else if(messageContent.contains(Message.COMPLETE)) {
+                            boolean set = false;
+                            for (AgentData agent: agents) {
+                                if(agent.matchData(msg.getSender())) {
+                                    try {
+                                        set = true;
+
+                                        if(agent.getCurrentLocation() != 0) {
+                                            int[] pathLoc = mapPaths[agent.getCurrentLocation()][0];
+                                            int[] pathDist = new int[pathLoc.length];
+
+                                            pathDist[0] = mapDist[agent.getCurrentLocation()][pathLoc[0]];
+                                            for(int i = 1; i < pathLoc.length; i++) {
+                                                pathDist[i] = mapDist[pathLoc[i - 1]][pathLoc[i]];
+                                            }
+
+                                            String jsonPath = new Path(pathLoc, pathDist).serialize();
+
+                                            ACLMessage reply = msg.createReply();
+                                            reply.setPerformative(ACLMessage.REQUEST);
+                                            reply.setContent(Message.RETURN + ":" + jsonPath);
+                                            myAgent.send(reply);
+                                        }
+                                    } catch(Exception ex) {
+                                        ex.printStackTrace();
+                                    }
+                                }
+                            }
+                            if(!set) {
+                                try {
+                                    throw new Exception(myAgent.getLocalName() + ": Received Path Complete Message From Unknown Delivery Agent.");
+                                } catch(Exception ex) {
+                                    ex.printStackTrace();
+                                }
+                            }
+                        }
+                        else if(msg.getPerformative() == ACLMessage.FAILURE) {
                             try {
-                                throw new Exception(myAgent.getLocalName() + ": Received Path Complete Message From Unknown Delivery Agent.");
+                                throw new Exception(myAgent.getLocalName() + ": " + msg.getSender().getLocalName() + " has run into an error.");
                             } catch(Exception ex) {
                                 ex.printStackTrace();
                             }
-                        }
-                    }
-                    else if(msg.getPerformative() == ACLMessage.FAILURE) {
-                        try {
-                            throw new Exception(myAgent.getLocalName() + ": " + msg.getSender().getLocalName() + " has run into an error.");
-                        } catch(Exception ex) {
-                            ex.printStackTrace();
                         }
                     }
                 }
@@ -278,6 +283,8 @@ public class MasterRoutingAgent extends Agent {
     //
     //The Steps
     //Step 0: Find Agents, and request their status
+    //  -Make sure the graph object is not null, otherwise end the behaviour
+    //  -Set the processing flag to true
     //  -Using the AMSService, an AID list of all Agents on the System is returned
     //  -The list of Agents is looped through
     //  -If any Agent names contain "DeliveryAgent" and does not match an existing AgentData object, a new AgentData object is created using the AID of the agent
@@ -339,8 +346,7 @@ public class MasterRoutingAgent extends Agent {
     //  -Loops through the AgentData objects
     //  -If the inventory inside the AgentData record is not empty, the AID in the AgentData is added as a receiver
     //  -The message content is set to a start message and sent
-    //  -The done variable is set to true
-    //  -The ListenForMessages behaviour is added
+    //  -The finishBehaviour() method is called
     private class processRoutes extends Behaviour {
         //int number of replies this agent is expecting. If agents are not given any items to deliver, this number will be decremented
         private int expReplies = 0;
@@ -362,6 +368,16 @@ public class MasterRoutingAgent extends Agent {
                 case 0:
                     System.out.println(getLocalName() + ": Finding Delivery Agents");
 
+                    //This behaviour has begun, so set the processing flag
+                    processing = true;
+
+                    //Make Sure Map Data has been assigned
+                    if(graph == null) {
+                        System.out.println(getLocalName() + ": Map Data Has Not Been Assigned Yet. Stopping Behaviour");
+                        finishBehaviour();
+                        break;
+                    }
+
                     //Find all Delivery Agents with AMS
                     //Send them a request for their information
                     AMSAgentDescription[] a = null;
@@ -374,7 +390,7 @@ public class MasterRoutingAgent extends Agent {
                         System.out.println(myAgent.getLocalName() + ": AMS ERROR while Finding Delivery Agents" + ex );
                         ex.printStackTrace();
                         System.out.println(myAgent.getLocalName() + ": An Error Has Occurred. Stopping this behaviour");
-                        done = true;
+                        finishBehaviour();
                     }
 
                     //TODO: Find a more reliable solution for this
@@ -423,7 +439,7 @@ public class MasterRoutingAgent extends Agent {
                     }
                     else {
                         System.out.println("No Agents Found");
-                        done = true;
+                        finishBehaviour();
                     }
 
                     break;
@@ -449,7 +465,7 @@ public class MasterRoutingAgent extends Agent {
                             } catch (Exception ex){
                                 ex.printStackTrace();
                                 System.out.println(myAgent.getLocalName() + ": An Error Has Occurred. Stopping this behaviour");
-                                done = true;
+                                finishBehaviour();
                             }
                         }
 
@@ -479,7 +495,7 @@ public class MasterRoutingAgent extends Agent {
 
                     if(weightTotal > capacityTotal) {
                         System.out.println(myAgent.getLocalName() + ": Mismatch in Total DA Capacity and Total Inventory Weight. Stopping this Behaviour");
-                        done = true;
+                        finishBehaviour();
                     }
 
                     System.out.println(getLocalName() + ": Allocating Inventories and Paths to Each Delivery Agent");
@@ -487,7 +503,7 @@ public class MasterRoutingAgent extends Agent {
                     //Solve the constraint problem, and terminate if no solution is found
                     if(!solveConstraintProblem()) {
                         System.out.println(getLocalName() + ": No Solution Found. Stopping this Behaviour");
-                        done = true;
+                        finishBehaviour();
                     }
 
                     System.out.println(getLocalName() + ": Inventories and Paths Created and Assigned");
@@ -539,7 +555,7 @@ public class MasterRoutingAgent extends Agent {
                                                 } catch (Exception ex) {
                                                     ex.printStackTrace();
                                                     System.out.println(myAgent.getLocalName() + ": An Error Has Occurred. Stopping this behaviour");
-                                                    done = true;
+                                                    finishBehaviour();
                                                 }
                                             }
                                         }
@@ -550,7 +566,7 @@ public class MasterRoutingAgent extends Agent {
                                         } catch (Exception ex) {
                                             ex.printStackTrace();
                                             System.out.println(myAgent.getLocalName() + ": An Error Has Occurred. Stopping this behaviour");
-                                            done = true;
+                                            finishBehaviour();
                                         }
                                     }
                                 }
@@ -562,7 +578,7 @@ public class MasterRoutingAgent extends Agent {
                             } catch (Exception ex){
                                 ex.printStackTrace();
                                 System.out.println(myAgent.getLocalName() + ": An Error Has Occurred. Stopping this behaviour");
-                                done = true;
+                                finishBehaviour();
                             }
                         }
 
@@ -625,7 +641,7 @@ public class MasterRoutingAgent extends Agent {
                                         } catch (Exception ex) {
                                             ex.printStackTrace();
                                             System.out.println(myAgent.getLocalName() + ": An Error Has Occurred. Stopping this behaviour");
-                                            done = true;
+                                            finishBehaviour();
                                         }
                                     }
                                 }
@@ -637,7 +653,7 @@ public class MasterRoutingAgent extends Agent {
                             } catch (Exception ex){
                                 ex.printStackTrace();
                                 System.out.println(myAgent.getLocalName() + ": An Error Has Occurred. Stopping this behaviour");
-                                done = true;
+                                finishBehaviour();
                             }
                         }
 
@@ -671,11 +687,7 @@ public class MasterRoutingAgent extends Agent {
 
                     System.out.println(getLocalName() + ": Delivery Agents Requested to Start");
 
-                    done = true;
-
-                    //This Behaviour Has Finished, So start processing regular messages
-                    //If this behaviour ever has to be rerun, remove the ListenForMessages behaviour
-                    addBehaviour(new ListenForMessages());
+                    finishBehaviour();
 
                     break;
 
@@ -686,6 +698,11 @@ public class MasterRoutingAgent extends Agent {
 
         public boolean done() {
             return done;
+        }
+
+        public void finishBehaviour() {
+            done = true;
+            processing = false;
         }
     }
 
@@ -1159,5 +1176,72 @@ public class MasterRoutingAgent extends Agent {
         } else return 0;
 
         return result;
+    }
+
+    //Loops through each of the Map Data arrays, and outputs them to console
+    public void testMapData() {
+        for(int i = 0; i < mapData.length; i++) {
+            for(int j = 0; j < mapData[i].length; j++) {
+                System.out.print(mapData[i][j] + " ");
+            }
+            System.out.println();
+        }
+
+        System.out.println();
+
+        for(int i = 0; i < mapDist.length; i++) {
+            for(int j = 0; j < mapDist[i].length; j++) {
+                System.out.print(mapDist[i][j] + " ");
+            }
+            System.out.println();
+        }
+
+        System.out.println();
+        for(int i = 0; i < mapPaths.length; i++) {
+            for(int j = 0; j < mapPaths[i].length; j++) {
+                System.out.print("{");
+                for(int k = 0; k < mapPaths[i][j].length; k++) {
+                    System.out.print(mapPaths[i][j][k] + ",");
+                }
+                System.out.print("}");
+            }
+            System.out.println();
+        }
+    }
+
+    //Overriding of MyAgentInterface Methods
+    @Override
+    public void StartMasterAgent() {
+        if(!processing) {
+            addBehaviour(new processRoutes());
+            addBehaviour(new listenForMessages());
+        }
+    }
+
+    @Override
+    public boolean AddItemToInventory(Item i) {
+        return masterInventory.addItem(i);
+    }
+
+    @Override
+    public void GenerateMap(int v, int dMin, int dMax, int eMin, int eMax) {
+        if(graph == null) {
+            graph = GraphGen.autoGenerate(v, dMin, dMax, eMin, eMax);
+
+            mapData = graph.getMapData();
+            mapDist = graph.getMapDist();
+            mapPaths = graph.getMapPaths();
+
+            System.out.println(getLocalName() + ": Map Generated!");
+            testMapData();
+        }
+        else {
+            System.out.println(getLocalName() + ": Map Already Generated!");
+        }
+    }
+
+    @Override
+    public void OverwriteOutput(OutputStream out) {
+        System.setOut(new PrintStream(out, true));
     }
 }
