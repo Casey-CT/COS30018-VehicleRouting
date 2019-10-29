@@ -107,7 +107,7 @@ public class App {
         AgentController AgentCtrl = mainCtrl.createNewAgent("MasterRoutingAgent", MasterRoutingAgent.class.getName(), new Object[0]);
 
         //TODO: TEXTAREA TEST
-        testText = new JTextArea(10, 20);
+        testText = new JTextArea(15, 50);
         testScroll = new JScrollPane(testText);
         out = createOutputStream();
 
@@ -322,7 +322,7 @@ public class App {
 
             frame.setContentPane(new App().mainPanel);
             frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-            Dimension frameDimension = new Dimension(300, 300);
+            Dimension frameDimension = new Dimension(800, 600);
 
             frame.setSize(frameDimension);
 //            frame.pack();
