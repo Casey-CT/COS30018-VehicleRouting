@@ -3,8 +3,8 @@ package Agent;
 import Agent.AgentInfo.AgentData;
 import Communication.Message;
 import DeliveryPath.Path;
+import GA.Location;
 import GraphGeneration.GraphGen;
-import GUI.MyAgentInterface;
 import Item.Inventory;
 import Item.Item;
 import jade.core.Agent;
@@ -20,16 +20,19 @@ import org.chocosolver.solver.Solution;
 import org.chocosolver.solver.Solver;
 import org.chocosolver.solver.variables.BoolVar;
 import org.chocosolver.solver.variables.IntVar;
+import org.jgap.*;
+import org.jgap.impl.*;
 
-import java.io.OutputStream;
-import java.io.PrintStream;
 import java.util.ArrayList;
-import java.util.Random;
-import java.util.Scanner;
+import java.util.Collections;
+import java.util.List;
+import java.util.stream.Collectors;
 
 import static org.chocosolver.util.tools.StatisticUtils.sum;
 
-public class MasterRoutingAgent extends Agent implements MyAgentInterface {
+public class MasterRoutingAgent extends Agent {
+
+    //private GraphGen graphGen = new GraphGen(5);
 
     //Collection of AgentData Objects, to keep track of the state of each DA this Agent is aware of
     private ArrayList<AgentData> agents = new ArrayList<>();
@@ -40,12 +43,6 @@ public class MasterRoutingAgent extends Agent implements MyAgentInterface {
 
     //Initial storage place of paths to be sent to DAs. Paths will likely be created based on the CSP solver, so this list will likely not be used, and can be removed
     private ArrayList<Path> paths = new ArrayList<>();
-
-    //Boolean flag, to make sure additional processing behaviour aren't added
-    private Boolean processing = false;
-
-    //GraphGen Object, for generating the Map Data arrays
-    private GraphGen graph;
 
     //Map Data
     //2D Array of Direct Connections between nodes.
@@ -113,8 +110,6 @@ public class MasterRoutingAgent extends Agent implements MyAgentInterface {
     protected void setup() {
         System.out.println(getAID().getLocalName() + ": I have been created");
 
-        registerO2AInterface(MyAgentInterface.class, this);
-
         //TODO: Remove this Dummy Data
         //Dummy Item Data
         masterInventory.addItem(new Item(1, "Item1", 2, 12, 1));
@@ -136,8 +131,37 @@ public class MasterRoutingAgent extends Agent implements MyAgentInterface {
         masterInventory.addItem(new Item(17, "Item17", 2, 16, 1));
         masterInventory.addItem(new Item(18, "Item18", 4, 5, 1));
 
-        //Commenting out the adding of this behaviour, as it will now be added by the GUI
-        //addBehaviour(new processRoutes());
+        //TODO: Replace this with the GraphGen code
+        //Dummy Map Data
+        //MapData
+        mapData = new int[][]{{0, 1, 0, 0, 3},
+                              {1, 0, 4, 0, 0},
+                              {0, 4, 0, 1, 0},
+                              {0, 0, 1, 0, 2},
+                              {3, 0, 0, 2, 0}};
+
+        //MapDist
+        mapDist = new int[][]{{0, 17, 31, 12, 52},
+                              {17, 0 ,12, 16, 91},
+                              {31, 12, 0, 18, 32},
+                              {12, 16, 18, 0, 26},
+                              {52, 91, 32, 26, 0}};
+
+        //MapPath
+        mapPaths = new int[][][]{{{}, {1}, {1, 2}, {4, 3}, {4}},
+                                 {{0}, {}, {2}, {2, 3}, {0, 4}},
+                                 {{1, 0}, {1}, {}, {3}, {3, 4}},
+                                 {{4, 0}, {2, 1}, {2}, {}, {4}},
+                                 {{0}, {0, 1}, {3, 2}, {3}, {}}};
+
+        //Sleeping, To Give Jade time to start up.
+        //Probably can remove, once the graph generation stuff is hooked up as it will cause enough delay that this isn't needed
+        //Secondly, the GUI will not be interactible until after this is created, so this is probable unnecessary once it is hooked up to the GUI
+        try{
+            Thread.sleep(2000);
+        }catch(Exception ex){System.out.println("Sleeping caused an error");}
+
+        addBehaviour(new processRoutes());
     }
 
     //TODO: Comment each individual message interpretation
@@ -338,13 +362,6 @@ public class MasterRoutingAgent extends Agent implements MyAgentInterface {
                 case 0:
                     System.out.println(getLocalName() + ": Finding Delivery Agents");
 
-                    //Make Sure Map Data has been assigned
-                    if(graph == null) {
-                        System.out.println(getLocalName() + ": Map Data Has Not Been Assigned Yet. Stopping Behaviour");
-                        finishBehaviour();
-                        break;
-                    }
-
                     //Find all Delivery Agents with AMS
                     //Send them a request for their information
                     AMSAgentDescription[] a = null;
@@ -357,7 +374,7 @@ public class MasterRoutingAgent extends Agent implements MyAgentInterface {
                         System.out.println(myAgent.getLocalName() + ": AMS ERROR while Finding Delivery Agents" + ex );
                         ex.printStackTrace();
                         System.out.println(myAgent.getLocalName() + ": An Error Has Occurred. Stopping this behaviour");
-                        finishBehaviour();
+                        done = true;
                     }
 
                     //TODO: Find a more reliable solution for this
@@ -406,7 +423,7 @@ public class MasterRoutingAgent extends Agent implements MyAgentInterface {
                     }
                     else {
                         System.out.println("No Agents Found");
-                        finishBehaviour();
+                        done = true;
                     }
 
                     break;
@@ -432,7 +449,7 @@ public class MasterRoutingAgent extends Agent implements MyAgentInterface {
                             } catch (Exception ex){
                                 ex.printStackTrace();
                                 System.out.println(myAgent.getLocalName() + ": An Error Has Occurred. Stopping this behaviour");
-                                finishBehaviour();
+                                done = true;
                             }
                         }
 
@@ -462,7 +479,7 @@ public class MasterRoutingAgent extends Agent implements MyAgentInterface {
 
                     if(weightTotal > capacityTotal) {
                         System.out.println(myAgent.getLocalName() + ": Mismatch in Total DA Capacity and Total Inventory Weight. Stopping this Behaviour");
-                        finishBehaviour();
+                        done = true;
                     }
 
                     System.out.println(getLocalName() + ": Allocating Inventories and Paths to Each Delivery Agent");
@@ -470,7 +487,7 @@ public class MasterRoutingAgent extends Agent implements MyAgentInterface {
                     //Solve the constraint problem, and terminate if no solution is found
                     if(!solveConstraintProblem()) {
                         System.out.println(getLocalName() + ": No Solution Found. Stopping this Behaviour");
-                        finishBehaviour();
+                        done = true;
                     }
 
                     System.out.println(getLocalName() + ": Inventories and Paths Created and Assigned");
@@ -522,7 +539,7 @@ public class MasterRoutingAgent extends Agent implements MyAgentInterface {
                                                 } catch (Exception ex) {
                                                     ex.printStackTrace();
                                                     System.out.println(myAgent.getLocalName() + ": An Error Has Occurred. Stopping this behaviour");
-                                                    finishBehaviour();
+                                                    done = true;
                                                 }
                                             }
                                         }
@@ -533,7 +550,7 @@ public class MasterRoutingAgent extends Agent implements MyAgentInterface {
                                         } catch (Exception ex) {
                                             ex.printStackTrace();
                                             System.out.println(myAgent.getLocalName() + ": An Error Has Occurred. Stopping this behaviour");
-                                            finishBehaviour();
+                                            done = true;
                                         }
                                     }
                                 }
@@ -545,7 +562,7 @@ public class MasterRoutingAgent extends Agent implements MyAgentInterface {
                             } catch (Exception ex){
                                 ex.printStackTrace();
                                 System.out.println(myAgent.getLocalName() + ": An Error Has Occurred. Stopping this behaviour");
-                                finishBehaviour();
+                                done = true;
                             }
                         }
 
@@ -608,7 +625,7 @@ public class MasterRoutingAgent extends Agent implements MyAgentInterface {
                                         } catch (Exception ex) {
                                             ex.printStackTrace();
                                             System.out.println(myAgent.getLocalName() + ": An Error Has Occurred. Stopping this behaviour");
-                                            finishBehaviour();
+                                            done = true;
                                         }
                                     }
                                 }
@@ -620,7 +637,7 @@ public class MasterRoutingAgent extends Agent implements MyAgentInterface {
                             } catch (Exception ex){
                                 ex.printStackTrace();
                                 System.out.println(myAgent.getLocalName() + ": An Error Has Occurred. Stopping this behaviour");
-                                finishBehaviour();
+                                done = true;
                             }
                         }
 
@@ -654,7 +671,7 @@ public class MasterRoutingAgent extends Agent implements MyAgentInterface {
 
                     System.out.println(getLocalName() + ": Delivery Agents Requested to Start");
 
-                    finishBehaviour();
+                    done = true;
 
                     //This Behaviour Has Finished, So start processing regular messages
                     //If this behaviour ever has to be rerun, remove the ListenForMessages behaviour
@@ -669,11 +686,6 @@ public class MasterRoutingAgent extends Agent implements MyAgentInterface {
 
         public boolean done() {
             return done;
-        }
-
-        public void finishBehaviour() {
-            done = true;
-            processing = false;
         }
     }
 
@@ -831,6 +843,123 @@ public class MasterRoutingAgent extends Agent implements MyAgentInterface {
         //TODO: Expand this code so that:
         // More than one solution is looked at
         // This behaviour terminates if there is no valid solution
+
+
+        //GENETIC ALGORITHM:
+
+
+        ArrayList<Location> locations = new ArrayList<>();
+
+        int index = 1;
+        Location location = null;
+        for(int x = 0; x < mapDist.length; x++) {
+            for(int y = 0; y < mapDist.length; y++) {
+                location = new Location(x, y, index, 0);
+                int demand = 0;
+                for(int z = 1; z <= masterInventory.getLength(); z++) {
+                    Item item = masterInventory.getItem(z);
+                    if(item.getDestination() == index) {
+                        demand += item.getWeight();
+                    }
+                }
+                location.setDemand(demand);
+                System.out.println("Location : " + index + " has a demand of: " + demand);
+            }
+            index++;
+            location.setDistancesMatrix(mapDist);
+            locations.add(location);
+        }
+
+        for(Location l: locations)  {
+            System.out.println("THERE EXISTS A LOCATION WITH INDEX: " + l.getIndex());
+        }
+
+        int numberOfEvolutions = 2000;
+        int populationSize = 200;
+
+        int numberOfLocations = locations.size();
+        int incompleteDeliveryPenalty = 150;
+        int incompleteTruckPenalty = 20;
+        int distancePenalty = 20;
+
+        GA.FitnessFunction fitnessFunction = new GA.FitnessFunction(D, numberOfLocations, da_capacity[0], incompleteDeliveryPenalty, incompleteTruckPenalty, distancePenalty);
+        fitnessFunction.setLocations(locations);
+
+        Configuration configuration = new DefaultConfiguration();
+        configuration.setPreservFittestIndividual(true);
+
+        MutationOperator mutationOperator = null;
+        CrossoverOperator crossoverOperator = null;
+
+        try {
+            configuration.setFitnessFunction(fitnessFunction);
+            configuration.setPopulationSize(populationSize);
+
+            mutationOperator = new MutationOperator(configuration);
+            mutationOperator.setMutationRate(10);
+
+            crossoverOperator = new CrossoverOperator(configuration);
+
+            configuration.addGeneticOperator(mutationOperator);
+            configuration.addGeneticOperator(crossoverOperator);
+        } catch (InvalidConfigurationException e) {
+            System.out.println("Error in Genetic Algorithm configuration: " + e.getMessage());
+        }
+
+        final Gene[] genes = new Gene[2 * numberOfLocations];
+
+        for (int i = 0; i < numberOfLocations; i++) {
+            try {
+                genes[i] = new IntegerGene(configuration, 1, D);
+                genes[i + numberOfLocations] = new DoubleGene(configuration, 0, numberOfLocations);
+            } catch (InvalidConfigurationException e) {
+                System.out.println("Error in Genetic Algorithm gene configuration: " + e.getMessage());
+            }
+        }
+
+        Genotype population = null;
+
+        try {
+            configuration.setSampleChromosome(new Chromosome(configuration, genes));
+            population = Genotype.randomInitialGenotype(configuration);
+        } catch(InvalidConfigurationException e) {
+            System.out.println("Invalid configuration" + e.getMessage());
+        }
+
+        System.out.println("Number of generations to evolve: " + numberOfEvolutions);
+
+        for(int i = 1; i <= numberOfEvolutions; i++) {
+            if (i % 100 == 0) {
+                IChromosome bestChromosome = population.getFittestChromosome();
+                System.out.println("Best fitness after " + i + " generations: " + bestChromosome.getFitnessValue());
+                double totalDistanceOfAllVehicles = 0.0;
+                for(int j = 1; j <= D; j++) {
+                    double routeDistance = fitnessFunction.computeTotalDistance(j, bestChromosome, fitnessFunction);
+                    totalDistanceOfAllVehicles += routeDistance;
+                }
+                System.out.println("Total distance of all vehicles: " + totalDistanceOfAllVehicles);
+            }
+            population.evolve();
+        }
+
+        IChromosome bestChromosome = population.getFittestChromosome();
+        double totalDistanceOfAllVehicles = 0.0;
+
+        for(int i = 1; i <= D; i++) {
+            List<Integer> route = fitnessFunction.getPositions(i, bestChromosome, fitnessFunction, true);
+            double routeDistance = fitnessFunction.computeTotalDistance(i, bestChromosome, fitnessFunction);
+            double vehicleWeight = fitnessFunction.computeUsedCapacity(i, bestChromosome, fitnessFunction);
+
+            List<Integer> result = new ArrayList<>(Collections.singletonList(1));
+            result.addAll(route.stream().map(aList -> aList + 1).collect(Collectors.toList()));
+
+            System.out.println("Delivery vehicle " + i + " : " + result);
+            System.out.println("Total distance " + routeDistance);
+            System.out.println("Weight of packages delivered: " + vehicleWeight);
+            totalDistanceOfAllVehicles += routeDistance;
+        }
+
+        System.out.println("Total distance of all vehicles: " + totalDistanceOfAllVehicles);
 
         //TODO: Change this to get Best
         Solver solver = model.getSolver();
@@ -1030,72 +1159,5 @@ public class MasterRoutingAgent extends Agent implements MyAgentInterface {
         } else return 0;
 
         return result;
-    }
-
-    //Loops through each of the Map Data arrays, and outputs them to console
-    public void testMapData() {
-        for(int i = 0; i < mapData.length; i++) {
-            for(int j = 0; j < mapData[i].length; j++) {
-                System.out.print(mapData[i][j] + " ");
-            }
-            System.out.println();
-        }
-
-        System.out.println();
-
-        for(int i = 0; i < mapDist.length; i++) {
-            for(int j = 0; j < mapDist[i].length; j++) {
-                System.out.print(mapDist[i][j] + " ");
-            }
-            System.out.println();
-        }
-
-        System.out.println();
-        for(int i = 0; i < mapPaths.length; i++) {
-            for(int j = 0; j < mapPaths[i].length; j++) {
-                System.out.print("{");
-                for(int k = 0; k < mapPaths[i][j].length; k++) {
-                    System.out.print(mapPaths[i][j][k] + ",");
-                }
-                System.out.print("}");
-            }
-            System.out.println();
-        }
-    }
-
-    //Overriding of MyAgentInterface Methods
-    @Override
-    public void StartMasterAgent() {
-        if(!processing) {
-            processing = true;
-            addBehaviour(new processRoutes());
-        }
-    }
-
-    @Override
-    public boolean AddItemToInventory(Item i) {
-        return masterInventory.addItem(i);
-    }
-
-    @Override
-    public void GenerateMap(int v, int dMin, int dMax, int eMin, int eMax) {
-        if(graph == null) {
-            graph = GraphGen.autoGenerate(v, dMin, dMax, eMin, eMax);
-
-            mapData = graph.getMapData();
-            mapDist = graph.getMapDist();
-            mapPaths = graph.getMapPaths();
-
-            System.out.println(getLocalName() + ": Map Generated!");
-            //testMapData();
-        }
-        else {
-            System.out.println(getLocalName() + ": Map Already Generated!");
-        }
-    }
-
-    @Override
-    public void OverwriteOutput(OutputStream out) {
-        System.setOut(new PrintStream(out, true));
     }
 }

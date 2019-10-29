@@ -35,6 +35,11 @@
             <artifactId>choco-solver</artifactId>
             <version>4.10.0</version>
         </dependency>
+		<dependency>
+            <groupId>net.sf.jgap</groupId>
+            <artifactId>jgap</artifactId>
+            <version>3.4.4</version>
+        </dependency>
     </dependencies>
 
 </project>
