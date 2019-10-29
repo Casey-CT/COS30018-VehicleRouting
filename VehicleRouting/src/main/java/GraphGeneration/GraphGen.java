@@ -1,5 +1,6 @@
 package GraphGeneration;
 
+import java.util.ArrayList;
 import java.util.Random;
 import java.util.Scanner;
 import java.util.concurrent.ThreadLocalRandom;
@@ -142,11 +143,16 @@ public class GraphGen {
         String pathOutput = "";
         pathOutput = printPath(endVertex, parents, pathOutput);
         String[] pathTemp = pathOutput.split(",");
-        int[] path = new int[pathTemp.length];
+
+        ArrayList<Integer> listPath = new ArrayList<>();
+
         //Iterate from 1, because the delivery agent assumes it is already at the first location.
-        for(int i = 1; i <= pathTemp.length-1; i++) {
-            path[i] = Integer.parseInt(pathTemp[i]);
+        for(int i = 1; i < pathTemp.length; i++) {
+            listPath.add(Integer.parseInt(pathTemp[i]));
         }
+
+        int[] path = listPath.stream().mapToInt(i->i).toArray();
+
         mapPaths[startVertex][endVertex] = path;
 
         /*for(int i = 1; i<= pathTemp.length-1; i++){
@@ -319,7 +325,7 @@ public class GraphGen {
             }
             for(int i = 0; i < v; i++){
                 for(int j = 0; j < v; j++){
-                    graph.dijkstra(graph.getMapData(), i, j);
+                    graph.dijkstra(graph.getMapData(), j, i);
                 }
             }
             System.out.println("EXPORTABLE 2D ARRAY:");
