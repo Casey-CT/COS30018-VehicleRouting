@@ -709,10 +709,12 @@ public class MasterRoutingAgent extends Agent implements MyAgentInterface {
     //Function for solving the CSP problem, and processing the solution
     //This function is complicated, so it is commented throughout
     //TODO: Add a proper writeup of this function, once the code has been cleaned up properly
+    //TODO: CleanUp/Remove the CSP code
+    //TODO: Add return false if no solution can be found
     //Assigns json representation of paths and inventories to AgentData objects in the agents ArrayList
     //Returns if a solution is found and processed, false otherwise
     public boolean solveConstraintProblem() {
-        //TODO: Expand CSP Solver
+        //TODO: Remove unnecessary data
         //Data to Give CSP Solver
 
         //Number of Items
@@ -760,106 +762,6 @@ public class MasterRoutingAgent extends Agent implements MyAgentInterface {
         //The average weight per delivery agent is the sum of the total weights of all the packages divided by the number of delivery agents
         int averageWeightPerDA = sum(weight) / D;
 
-        //The Model
-        Model model = new Model("Vehicle Routing Solver");
-
-        //Variables
-        //Boolean Variable for Each Combination of Package and DA
-        //If a variable is true, it means that DA is delivery that package
-        //eg; if Packages[i][j] is true, then DA j is delivering Package i
-        BoolVar[][] Packages = new BoolVar[P][D];
-        for(int i = 0; i < P; i++) {
-            for(int j = 0; j < D; j++) {
-                Packages[i][j] = model.boolVar("Package " + i + " - DA " + j + ": ");
-            }
-        }
-
-        //Int Variable for the total weight of packages assigned to a particular DA.
-        //eg; Tot_Weights[i] is the total weight of packages assigned to DA i
-        //The Value of these variables is calculated with a SCALAR constraint
-        IntVar[] Tot_Weights = new IntVar[D];
-        for(int i = 0; i < D; i++) {
-            Tot_Weights[i] = model.intVar("DA " + i + "Capacity", 0, da_capacity[i]);
-        }
-
-        //Int Variable for the total "rough" distance of each path
-        //eg; Tot_RoughPath[i] is the total rough path distance of packages assigned to DA i
-        //The Value of these variables is calculated with a SCALAR constraint
-        IntVar[] Tot_RoughPath = new IntVar[D];
-        for(int i = 0; i < D; i++) {
-            Tot_RoughPath[i] = model.intVar("DA " + i + " RoughPath", 0, IntVar.MAX_INT_BOUND);
-        }
-
-        //Int Variable for the total number of packages assigned to each DA
-        //eg; Tot_Packages[i] is the total number of packages assigned to DA i
-        //The Value of these variables is calculated with a SCALAR constraint, using Packages_Coeff as its coefficients
-        IntVar[] Tot_Packages = new IntVar[D];
-        for(int i = 0; i < D; i++) {
-            Tot_Packages[i] = model.intVar("DA " + i + " Package Total", 0, IntVar.MAX_INT_BOUND);
-        }
-
-        //Single IntVar to be used as a total of all rough paths
-        //This variable will be used as the "objective" in the code
-        //The value will be calculated in a SCALAR constraint, using Path_Total_Coeff as its coefficients
-        IntVar Path_Total = model.intVar("Total Path Length", 0, IntVar.MAX_INT_BOUND);
-
-        //TODO: Find a better method of totalling variables
-        //Scalar Coefficient Arrays
-        //As a SCALAR constraint requires the number of coefficients and variables to be the same,
-        //to use a SCALAR constraint to sum variables (which I'm not sure is even a good idea, but it works),
-        //all the coefficients need to be 1.
-
-        //Array of length P (number of packages)
-        int[] Packages_Coeff = new int [P];
-        for(int i = 0; i < P; i++) {
-            Packages_Coeff[i] = 1;
-        }
-
-        //Array of length D (number of DAs)
-        int[] Path_Total_Coeff = new int[D];
-        for(int i = 0; i < D; i++) {
-            Path_Total_Coeff[i] = 1;
-        }
-
-        //Constraints
-        //Each Package Must Be Assigned Once
-        for(int i = 0; i < P; i++) {
-            model.sum(Packages[i], "=", 1).post();
-        }
-
-        for(int i = 0; i < D; i++) {
-            BoolVar[] column = new BoolVar[P];
-            for(int j = 0; j < P; j++) {
-                column[j] = Packages[j][i];
-            }
-            //This calculates the total weight of packages assigned to DA i
-            model.scalar(column, weight, "=", Tot_Weights[i]).post();
-
-            //Total number of packages assigned to DA i
-            model.scalar(column, Packages_Coeff, "=", Tot_Packages[i]);
-
-            //Total Weight of DA i, cannot exceed capacity of DA i
-            model.arithm(Tot_Weights[i], "<=", da_capacity[i]).post();
-
-            //This calculates the total rough path of packages assigned to DA i
-            model.scalar(column, roughDistances, "=", Tot_RoughPath[i]).post();
-            
-            //Naive constraint
-            //Helps better spread the packages among the DAs, works only when DAs have same or very similar capacities
-            //model.arithm(Tot_Weights[i], ">=", averageWeightPerDA).post();
-
-            //This constraint limits the number of packages a DA can be assigned to 3.
-            //If we want to implement limits on the number of packages a DA can hold, we can replace the three with a value pertaining to each DA
-            //model.sum(column, "=", 3).post();
-        }
-
-        //Sum of all Tot_RoughPath variables into the Path_Total variable
-        model.scalar(Tot_RoughPath, Path_Total_Coeff, "=", Path_Total).post();
-
-        //The Solver
-        //TODO: Expand this code so that:
-        // More than one solution is looked at
-        // This behaviour terminates if there is no valid solution
 
 
         //GENETIC ALGORITHM:
@@ -962,6 +864,8 @@ public class MasterRoutingAgent extends Agent implements MyAgentInterface {
         IChromosome bestChromosome = population.getFittestChromosome();
         double totalDistanceOfAllVehicles = 0.0;
 
+        ArrayList<List<Integer>> results = new ArrayList<>();
+
         for(int i = 1; i <= D; i++) {
             List<Integer> route = fitnessFunction.getPositions(i, bestChromosome, fitnessFunction, true);
             double routeDistance = fitnessFunction.computeTotalDistance(i, bestChromosome, fitnessFunction);
@@ -969,6 +873,7 @@ public class MasterRoutingAgent extends Agent implements MyAgentInterface {
 
             List<Integer> result = new ArrayList<>(Collections.singletonList(1));
             result.addAll(route.stream().map(aList -> aList + 1).collect(Collectors.toList()));
+            results.add(result);
 
             System.out.println("Delivery vehicle " + i + " : " + result);
             System.out.println("Total distance " + routeDistance);
@@ -977,6 +882,165 @@ public class MasterRoutingAgent extends Agent implements MyAgentInterface {
         }
 
         System.out.println("Total distance of all vehicles: " + totalDistanceOfAllVehicles);
+
+        //TODO: Make sure to avoid any out of bounds exceptions here
+        //As a note, this assumes the order of results are the same as the order of the AgentData objects in agents
+        for(int i = 0; i < agents.size(); i++) {
+
+            //Assemble the Inventory
+            //Creates a temp inventory
+            Inventory tempInv = new Inventory();
+
+            //Loops through each location in results[i]
+            for(Integer in: results.get(i)) {
+
+                //Loops through every item in the master inventory
+                //If its node id of the item, matches then node id from results,
+                //the item is added to the temp inventory
+                for(Item item: masterInventory.getItems()) {
+                    if(item.getDestination() == in) {
+                        tempInv.addItem(item);
+                    }
+                }
+            }
+
+            //Serialize the assembled inventory, and add to the AgentData
+            agents.get(i).setJsonInventory(tempInv.serialize());
+
+            //TODO: This could be made more efficient
+            // I've done it in this way as it lets me re-use some of the choco code
+            //Assemble the Path
+            //Iterates through the ordered items in tempInv
+            //For each node between the item and previous item
+            //The node ids are added to the loc ArrayList
+            //The distances are added to the dist ArrayList
+            ArrayList<Integer> loc = new ArrayList<>();
+            ArrayList<Integer> dist = new ArrayList<>();
+            int prev_loc = agents.get(i).getCurrentLocation();
+            for(Item item: tempInv.getItems()) {
+                if(item.getDestination() != prev_loc) {
+                    int[] next_dest = mapPaths[prev_loc][item.getDestination()];
+                    for(int o = 0; o < next_dest.length; o++) {
+                        loc.add(next_dest[o]);
+                        dist.add(mapData[prev_loc][o]);
+                        prev_loc = next_dest[o];
+                    }
+                }
+            }
+
+            //The loc and dist ArrayLists are converted to arrays
+            //These arrays are used to create a Path object
+            //This path is serialized and added to the AgentData object
+            int[] loc_array = loc.stream().mapToInt(o -> o).toArray();
+            int[] dist_array = dist.stream().mapToInt(o -> o).toArray();
+            Path path = new Path(loc_array, dist_array);
+            agents.get(i).setJsonPath(path.serialize());
+        }
+
+
+        /*
+        //OLD CHOCO CODE
+
+        //The Model
+        Model model = new Model("Vehicle Routing Solver");
+
+        //Variables
+        //Boolean Variable for Each Combination of Package and DA
+        //If a variable is true, it means that DA is delivery that package
+        //eg; if Packages[i][j] is true, then DA j is delivering Package i
+        BoolVar[][] Packages = new BoolVar[P][D];
+        for(int i = 0; i < P; i++) {
+            for(int j = 0; j < D; j++) {
+                Packages[i][j] = model.boolVar("Package " + i + " - DA " + j + ": ");
+            }
+        }
+
+        //Int Variable for the total weight of packages assigned to a particular DA.
+        //eg; Tot_Weights[i] is the total weight of packages assigned to DA i
+        //The Value of these variables is calculated with a SCALAR constraint
+        IntVar[] Tot_Weights = new IntVar[D];
+        for(int i = 0; i < D; i++) {
+            Tot_Weights[i] = model.intVar("DA " + i + "Capacity", 0, da_capacity[i]);
+        }
+
+        //Int Variable for the total "rough" distance of each path
+        //eg; Tot_RoughPath[i] is the total rough path distance of packages assigned to DA i
+        //The Value of these variables is calculated with a SCALAR constraint
+        IntVar[] Tot_RoughPath = new IntVar[D];
+        for(int i = 0; i < D; i++) {
+            Tot_RoughPath[i] = model.intVar("DA " + i + " RoughPath", 0, IntVar.MAX_INT_BOUND);
+        }
+
+        //Int Variable for the total number of packages assigned to each DA
+        //eg; Tot_Packages[i] is the total number of packages assigned to DA i
+        //The Value of these variables is calculated with a SCALAR constraint, using Packages_Coeff as its coefficients
+        IntVar[] Tot_Packages = new IntVar[D];
+        for(int i = 0; i < D; i++) {
+            Tot_Packages[i] = model.intVar("DA " + i + " Package Total", 0, IntVar.MAX_INT_BOUND);
+        }
+
+        //Single IntVar to be used as a total of all rough paths
+        //This variable will be used as the "objective" in the code
+        //The value will be calculated in a SCALAR constraint, using Path_Total_Coeff as its coefficients
+        IntVar Path_Total = model.intVar("Total Path Length", 0, IntVar.MAX_INT_BOUND);
+
+        //TODO: Find a better method of totalling variables
+        //Scalar Coefficient Arrays
+        //As a SCALAR constraint requires the number of coefficients and variables to be the same,
+        //to use a SCALAR constraint to sum variables (which I'm not sure is even a good idea, but it works),
+        //all the coefficients need to be 1.
+
+        //Array of length P (number of packages)
+        int[] Packages_Coeff = new int [P];
+        for(int i = 0; i < P; i++) {
+            Packages_Coeff[i] = 1;
+        }
+
+        //Array of length D (number of DAs)
+        int[] Path_Total_Coeff = new int[D];
+        for(int i = 0; i < D; i++) {
+            Path_Total_Coeff[i] = 1;
+        }
+
+        //Constraints
+        //Each Package Must Be Assigned Once
+        for(int i = 0; i < P; i++) {
+            model.sum(Packages[i], "=", 1).post();
+        }
+
+        for(int i = 0; i < D; i++) {
+            BoolVar[] column = new BoolVar[P];
+            for(int j = 0; j < P; j++) {
+                column[j] = Packages[j][i];
+            }
+            //This calculates the total weight of packages assigned to DA i
+            model.scalar(column, weight, "=", Tot_Weights[i]).post();
+
+            //Total number of packages assigned to DA i
+            model.scalar(column, Packages_Coeff, "=", Tot_Packages[i]);
+
+            //Total Weight of DA i, cannot exceed capacity of DA i
+            model.arithm(Tot_Weights[i], "<=", da_capacity[i]).post();
+
+            //This calculates the total rough path of packages assigned to DA i
+            model.scalar(column, roughDistances, "=", Tot_RoughPath[i]).post();
+
+            //Naive constraint
+            //Helps better spread the packages among the DAs, works only when DAs have same or very similar capacities
+            //model.arithm(Tot_Weights[i], ">=", averageWeightPerDA).post();
+
+            //This constraint limits the number of packages a DA can be assigned to 3.
+            //If we want to implement limits on the number of packages a DA can hold, we can replace the three with a value pertaining to each DA
+            //model.sum(column, "=", 3).post();
+        }
+
+        //Sum of all Tot_RoughPath variables into the Path_Total variable
+        model.scalar(Tot_RoughPath, Path_Total_Coeff, "=", Path_Total).post();
+
+        //The Solver
+        //TODO: Expand this code so that:
+        // More than one solution is looked at
+        // This behaviour terminates if there is no valid solution
 
         //TODO: Change this to get Best
         Solver solver = model.getSolver();
@@ -1061,11 +1125,11 @@ public class MasterRoutingAgent extends Agent implements MyAgentInterface {
                 //These arrays are used to create a Path object
                 //This path is serialized and added to the AgentData object
                 int[] loc_array = loc.stream().mapToInt(o -> o).toArray();
-                int[] dist_array = loc.stream().mapToInt(o -> o).toArray();
+                int[] dist_array = dist.stream().mapToInt(o -> o).toArray();
                 Path path = new Path(loc_array, dist_array);
                 agents.get(i).setJsonPath(path.serialize());
             }
-        }
+        }*/
         return true;
     }
 
