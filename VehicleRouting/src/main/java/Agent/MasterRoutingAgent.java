@@ -65,6 +65,9 @@ public class MasterRoutingAgent extends Agent implements MyAgentInterface {
     //Boolean flag, to make sure additional processRoutes behaviours aren't added
     private boolean processing = false;
 
+    private int totalCapacityOfAllDAs;
+
+
     //Field Getters and Setters
     public ArrayList<AgentData> getAgents() {
         return agents;
@@ -119,26 +122,31 @@ public class MasterRoutingAgent extends Agent implements MyAgentInterface {
 
         registerO2AInterface(MyAgentInterface.class, this);
 
+
+
         //TODO: Remove this Dummy Data
         //Dummy Item Data
-        masterInventory.addItem(new Item(1, "Item1", 2, 12, 1));
-        masterInventory.addItem(new Item(2, "Item2", 3, 50, 1));
-        masterInventory.addItem(new Item(3, "Item3", 2, 12, 1));
-        masterInventory.addItem(new Item(4, "Item4", 4, 11, 1));
-        masterInventory.addItem(new Item(5, "Item5", 1, 2, 1));
-        masterInventory.addItem(new Item(6, "Item6", 2, 11, 1));
-        masterInventory.addItem(new Item(7, "Item7", 1, 16, 1));
-        masterInventory.addItem(new Item(8, "Item8", 2, 12, 1));
-        masterInventory.addItem(new Item(9, "Item9", 4, 20, 1));
-        masterInventory.addItem(new Item(10, "Item10", 2, 10, 1));
-        masterInventory.addItem(new Item(11, "Item11", 3, 15, 1));
-        masterInventory.addItem(new Item(12, "Item12", 2, 17, 1));
-        masterInventory.addItem(new Item(13, "Item13", 4, 9, 1));
-        masterInventory.addItem(new Item(14, "Item14", 1, 1, 1));
-        masterInventory.addItem(new Item(15, "Item15", 2, 7, 1));
-        masterInventory.addItem(new Item(16, "Item16", 1, 3, 1));
-        masterInventory.addItem(new Item(17, "Item17", 2, 16, 1));
-        masterInventory.addItem(new Item(18, "Item18", 4, 5, 1));
+//        masterInventory.addItem(new Item(1, "Item1", 2, 12, 1));
+//        masterInventory.addItem(new Item(2, "Item2", 3, 50, 1));
+//        masterInventory.addItem(new Item(3, "Item3", 2, 12, 1));
+//        masterInventory.addItem(new Item(4, "Item4", 4, 11, 1));
+//        masterInventory.addItem(new Item(5, "Item5", 1, 2, 1));
+//        masterInventory.addItem(new Item(6, "Item6", 2, 11, 1));
+//        masterInventory.addItem(new Item(7, "Item7", 1, 16, 1));
+//        masterInventory.addItem(new Item(8, "Item8", 2, 12, 1));
+//        masterInventory.addItem(new Item(9, "Item9", 4, 20, 1));
+//        masterInventory.addItem(new Item(10, "Item10", 2, 10, 1));
+//        masterInventory.addItem(new Item(11, "Item11", 3, 15, 1));
+//        masterInventory.addItem(new Item(12, "Item12", 2, 17, 1));
+//        masterInventory.addItem(new Item(13, "Item13", 4, 9, 1));
+//        masterInventory.addItem(new Item(14, "Item14", 1, 1, 1));
+//        masterInventory.addItem(new Item(15, "Item15", 2, 7, 1));
+//        masterInventory.addItem(new Item(16, "Item16", 1, 3, 1));
+//        masterInventory.addItem(new Item(17, "Item17", 2, 16, 1));
+//        masterInventory.addItem(new Item(18, "Item18", 4, 5, 1));
+
+
+
 
         /*
         //TODO: Replace this with the GraphGen code
@@ -550,11 +558,12 @@ public class MasterRoutingAgent extends Agent implements MyAgentInterface {
                                         for(Item item: agent.inventory.getItems()) {
                                             //Remove each item given to the agent from the master inventory
                                             if(!masterInventory.removeItem(item.getId())) {
-                                                try{
+                                                try {
                                                     throw new Exception(myAgent.getLocalName() + ": ERROR - " + inventory_response.getSender().toString() + " has been given an item not from the master inventory");
                                                 } catch (Exception ex) {
                                                     ex.printStackTrace();
                                                     System.out.println(myAgent.getLocalName() + ": An Error Has Occurred. Stopping this behaviour");
+                                                    System.out.println("ITEM ID THAT CAUSED ERROR: " +item.getId());
                                                     finishBehaviour();
                                                 }
                                             }
@@ -743,7 +752,7 @@ public class MasterRoutingAgent extends Agent implements MyAgentInterface {
         //Distance from each Item's Location to Node 0
         int[] roughDistances;
         for(Item item: masterInventory.getItems()) {
-            temp.add(mapDist[0][item.getDestination()]);
+            temp.add(mapDist[0][item.getDestination() - 1]);
         }
         roughDistances = temp.stream().mapToInt(o -> o).toArray();
         temp.clear();
@@ -758,6 +767,8 @@ public class MasterRoutingAgent extends Agent implements MyAgentInterface {
         }
         da_capacity = temp.stream().mapToInt(o -> o).toArray();
         temp.clear();
+
+
 
         //The average weight per delivery agent is the sum of the total weights of all the packages divided by the number of delivery agents
         int averageWeightPerDA = sum(weight) / D;
@@ -873,13 +884,24 @@ public class MasterRoutingAgent extends Agent implements MyAgentInterface {
 
             List<Integer> result = new ArrayList<>(Collections.singletonList(1));
             result.addAll(route.stream().map(aList -> aList + 1).collect(Collectors.toList()));
+
             results.add(result);
+
+
 
             System.out.println("Delivery vehicle " + i + " : " + result);
             System.out.println("Total distance " + routeDistance);
             System.out.println("Weight of packages delivered: " + vehicleWeight);
             totalDistanceOfAllVehicles += routeDistance;
         }
+
+
+        for(int i = 1; i < agents.size(); i++) {
+            if(results.get(i).contains(1)) {
+                results.get(i).remove(0);
+            }
+        }
+
 
         System.out.println("Total distance of all vehicles: " + totalDistanceOfAllVehicles);
 
@@ -893,13 +915,13 @@ public class MasterRoutingAgent extends Agent implements MyAgentInterface {
 
             //Loops through each location in results[i]
             for(Integer in: results.get(i)) {
-
                 //Loops through every item in the master inventory
                 //If its node id of the item, matches then node id from results,
                 //the item is added to the temp inventory
                 for(Item item: masterInventory.getItems()) {
                     if(item.getDestination() == in) {
                         tempInv.addItem(item);
+                        System.out.println("ITEM : " + item.getId() + " ASSIGNED TO DA " + i);
                     }
                 }
             }
@@ -919,7 +941,7 @@ public class MasterRoutingAgent extends Agent implements MyAgentInterface {
             int prev_loc = agents.get(i).getCurrentLocation();
             for(Item item: tempInv.getItems()) {
                 if(item.getDestination() != prev_loc) {
-                    int[] next_dest = mapPaths[prev_loc][item.getDestination()];
+                    int[] next_dest = mapPaths[prev_loc][item.getDestination() - 1];
                     for(int o = 0; o < next_dest.length; o++) {
                         loc.add(next_dest[o]);
                         dist.add(mapData[prev_loc][o]);
@@ -1170,14 +1192,14 @@ public class MasterRoutingAgent extends Agent implements MyAgentInterface {
 
                         for(int j = 0; j < items.size(); j++) {
                             if(i == 0) {
-                                if(mapDist[startLocation][items.get(j).getDestination()] < closestDist || closestDist == -1) {
-                                    closestDist = mapDist[startLocation][items.get(j).getDestination()];
+                                if(mapDist[startLocation][items.get(j).getDestination() - 1] < closestDist || closestDist == -1) {
+                                    closestDist = mapDist[startLocation][items.get(j).getDestination() - 1];
                                     closestItem = j;
                                 }
                             }
                             else {
-                                if(mapDist[sortedInv.getItems().get(i - 1).getDestination()][items.get(j).getDestination()] < closestDist || closestDist == -1) {
-                                    closestDist = mapDist[sortedInv.getItems().get(i - 1).getDestination()][items.get(j).getDestination()];
+                                if(mapDist[sortedInv.getItems().get(i - 1).getDestination() - 1][items.get(j).getDestination() - 1] < closestDist || closestDist == -1) {
+                                    closestDist = mapDist[sortedInv.getItems().get(i - 1).getDestination() - 1][items.get(j).getDestination() - 1];
                                     closestItem = j;
                                 }
                             }
@@ -1221,10 +1243,10 @@ public class MasterRoutingAgent extends Agent implements MyAgentInterface {
             try {
                 for(int i = 0; i < items.size(); i++) {
                     if (i == 0) {
-                        result += mapDist[startLocation][items.get(i).getDestination()];
+                        result += mapDist[startLocation][items.get(i).getDestination() - 1];
                     }
                     else {
-                        result += mapDist[items.get(i - 1).getDestination()][items.get(i).getDestination()];
+                        result += mapDist[items.get(i - 1).getDestination() - 1][items.get(i).getDestination() - 1];
                     }
                 }
 
@@ -1298,6 +1320,7 @@ public class MasterRoutingAgent extends Agent implements MyAgentInterface {
 
             System.out.println(getLocalName() + ": Map Generated!");
             testMapData();
+            generateItems();
         }
         else {
             System.out.println(getLocalName() + ": Map Already Generated!");
@@ -1307,5 +1330,30 @@ public class MasterRoutingAgent extends Agent implements MyAgentInterface {
     @Override
     public void OverwriteOutput(OutputStream out) {
         System.setOut(new PrintStream(out, true));
+    }
+
+    private void generateItems() {
+
+        //TODO: pass the DA capacities to this method
+        int maxCapacitiesOfAllDAs = 300;
+
+        int itemID = 1;
+        String itemName = "Item";
+        String tempName = itemName;
+        int destination = 0;
+        int weight = 0;
+        int size = 1;
+
+        int numberOfLocations = mapDist.length;
+
+        while (maxCapacitiesOfAllDAs >= 10) {
+            destination = (int) (Math.random() * ((numberOfLocations - 1) + 1)) + 1;
+            weight = (int) (Math.random() * ((10 - 1) + 1)) + 1;
+            tempName = itemName + Integer.toString(itemID);
+            System.out.println("ITEM NAME IS: " + tempName + ", ID: " + itemID);
+            masterInventory.addItem(new Item(itemID, tempName, destination, weight, size));
+            itemID++;
+            maxCapacitiesOfAllDAs -= weight;
+        }
     }
 }

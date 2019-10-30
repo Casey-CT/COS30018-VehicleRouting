@@ -78,8 +78,8 @@ public class FitnessFunction extends org.jgap.FitnessFunction {
         double usedCapacity = 0.0;
 
         for(int pos: positions) {
-            final Location node = f.getLocation(pos);
-            usedCapacity += node.getDemand();
+            final Location location = f.getLocation(pos);
+            usedCapacity += location.getDemand();
         }
         return usedCapacity;
     }
@@ -90,7 +90,8 @@ public class FitnessFunction extends org.jgap.FitnessFunction {
         final double usedCapacity = computeUsedCapacity(vehicleNumber, iChromosome, f);
 
         if(usedCapacity > vehicleCapacity) {
-            return (usedCapacity - vehicleCapacity) * incompleteDeliveryPenalty;
+            //return (usedCapacity - vehicleCapacity) * incompleteDeliveryPenalty;
+            return 100000;
         }
 
         return (vehicleCapacity - usedCapacity) * incompleteTruckPenalty;
@@ -106,16 +107,15 @@ public class FitnessFunction extends org.jgap.FitnessFunction {
         Location lastVisited = depot;
 
         for (int pos : positions) {
-            final Location node = this.getLocation(pos);
-            totalDistance += lastVisited.distanceTo(node);
-            lastVisited = node;
+            final Location location = this.getLocation(pos);
+            totalDistance += lastVisited.distanceTo(location);
+            lastVisited = location;
         }
 
         totalDistance += lastVisited.distanceTo(depot);
 
         return totalDistance;
     }
-
 
     public List<Integer> getPositions(final int vehicleNumber, final IChromosome chromosome, final FitnessFunction f, final boolean order) {
         final List<Integer> route = new ArrayList<>();
