@@ -398,10 +398,8 @@ public class DeliveryAgent extends Agent implements DeliveryAgentInterface {
     //Overwriting DeliveryAgentInterface Methods
     @Override
     public String getData() {
-        String s = "Success! \n";
-        s = s + inventory.listItems();
-
-        return s;
+        String result = getLocalName() + "\n" + inventory.listItems() + "\nCurrently At Node: " + getCurrentLocation();
+        return result;
     }
 
     @Override

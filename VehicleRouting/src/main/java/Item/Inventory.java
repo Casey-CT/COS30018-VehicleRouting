@@ -156,6 +156,7 @@ public class Inventory {
         String result = "";
 
         if(!isEmpty()) {
+            result += "Currently Carrying:\n";
             for(int i = 0; i < items.size(); i++) {
                 if(i == items.size() - 1){
                     result += items.get(i).toString();
