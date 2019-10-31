@@ -2,65 +2,51 @@ package GUI;
 
 import Agent.DeliveryAgent;
 import Agent.MasterRoutingAgent;
-import jade.Boot;
-import jade.core.Agent;
+import Communication.Message;
+import Item.Item;
 import jade.core.Profile;
 import jade.core.ProfileImpl;
 import jade.core.Runtime;
 import jade.wrapper.AgentController;
 import jade.wrapper.ContainerController;
-import jade.wrapper.StaleProxyException;
 
 import javax.swing.*;
 import javax.swing.JOptionPane;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
-import java.awt.GridLayout;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
-import java.awt.event.MouseMotionAdapter;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintStream;
 import java.util.ArrayList;
+import java.util.Random;
 import javax.swing.SwingUtilities;
-import javax.swing.border.EmptyBorder;
-import jade.domain.AMSService;
-import jade.domain.FIPAAgentManagement.*;
-import org.w3c.dom.Text;
-//import oracle.jrockit.jfr.JFR;
-//import sun.management.resources.agent;
-
-
-//import oracle.jrockit.jfr.JFR;
 
 //TODO:
-// ADD ITEM TO MASTERROUTER'S INVENTORY BY BUTTON
-// MAPPING POPUP GUI INTERFACE (REPEATED POPUPS)
 // SNIFFER AGENT (Console output)
-// ASK ABOUT 40% EXTRA MARKS ON EXTENSION
-// EXTENSION: IMAGE OF MAP TO GUI (Alex actually needs help send help please)
-// EXTENSION: Animations
+// EXTENSION: IMAGE OF MAP TO GUI + Lines For DA Path
 // Comment this code
 public class App {
 
     //Map Constants
-    //MIN_CON_MODIFIER is multiplied by nodeCount to get the minimum number of connection in the generated graph
-    //MAX_CON_MODIFIER is multiplied by nodeCount to get the maximum number of connection in the generated graph
+    //MIN_CON_MODIFIER is used to calculate the minimum percentage of filled connections
+    //MAX_CON_MODIFIER is used to calculate the maximum percentage of filled connections
     //MIN_DIST is the minimum distance between any two nodes
     //MAX_DIST is the maximum distance between any two nodes
-    private static final int MIN_CON_MODIFIER = 1;
-    private static final int MAX_CON_MODIFIER = 3;
+    private static final int MIN_CON_MODIFIER = 50;
+    private static final int MAX_CON_MODIFIER = 75;
     private static final int MIN_DIST = 5;
     private static final int MAX_DIST = 15;
 
-    private static final int CANCEL_DA = -1;
+    private static final int WEIGHT_SIZE_MODIFIER = 20;
+
+    private static final int CANCEL = -1;
 
     //TODO: Fill in Sniffer Text
     private static final String MRA_TEXT = "MasterRoutingAgent";
     private static final String DA_TEXT = "DeliveryAgent";
-    private static final String SNIFFER_TEXT = "Sniffer";
 
     //Redirected Output Stream
     private TextUpdater textUpdater = new TextUpdater();
@@ -93,6 +79,8 @@ public class App {
 
     private int agentInt = 0;
 
+    private int itemInt = 0;
+
     //Placing this here as it is used to spin up additional Delivery Agents
     private ContainerController mainCtrl;
 
@@ -112,7 +100,7 @@ public class App {
 
         JOptionPane.showMessageDialog(null, "Welcome to VehicleRouting");
 
-        nodeCount = getNodeCount("Enter Number of Map Nodes:");
+        nodeCount = getIntValue("Enter Number of Map Nodes:", "", 5, true);
 
         try {
             Runtime rt = Runtime.instance();
@@ -123,15 +111,14 @@ public class App {
 
             System.out.println("Attempting to Activate RoutingAgent");
 
-
-
             AgentCtrl.start();
             Thread.sleep(1000);
             o2a = AgentCtrl.getO2AInterface(GUI.MyAgentInterface.class);
             o2a.OverwriteOutput(out);
 
+            o2a.GenerateMap(nodeCount, MIN_DIST, MAX_DIST, ((nodeCount * nodeCount) * MIN_CON_MODIFIER) / 100, ((nodeCount * nodeCount) * MAX_CON_MODIFIER) / 100);
+            //System.out.println("DEBUG. Number of Nodes: " + nodeCount + " Minimum Connections: " + ((nodeCount * nodeCount) * MIN_CON_MODIFIER) / 100 + " Maximum Connections: " + ((nodeCount * nodeCount) * MAX_CON_MODIFIER) / 100);
 
-            o2a.GenerateMap(nodeCount, MIN_DIST, MAX_DIST, nodeCount * MIN_CON_MODIFIER, nodeCount * MAX_CON_MODIFIER);
         } catch (Exception ex) {
             ex.printStackTrace();
         }
@@ -140,12 +127,26 @@ public class App {
         JButton MasterAgentButton = new JButton();
         String mraButtonLabel = "Start Master\nAgent Processing";
         MasterAgentButton.setText("<html>" + mraButtonLabel.replaceAll("\\n", "<br>") + "</html>");
+
+        JButton listMasterInventory = new JButton();
+        String listMasterInventoryLabel = "List Master\nInventory Items";
+        listMasterInventory.setText("<html>" + listMasterInventoryLabel.replaceAll("\\n", "<br>") + "</html>");
+
         JButton DeliveryAgentButton = new JButton();
         String daButtonLabel = "Create\nDelivery Agent";
         DeliveryAgentButton.setText("<html>" + daButtonLabel.replaceAll("\\n", "<br>") + "</html>");
+
         JButton CheckAgentButton = new JButton();
         String checkButtonLabel = "Check Delivery\nAgent Status";
         CheckAgentButton.setText("<html>" + checkButtonLabel.replaceAll("\\n", "<br>") + "</html>");
+
+        JButton addItem = new JButton();
+        String addItemLabel = "Add Item";
+        addItem.setText("<html>" + addItemLabel + "</html>");
+
+        JButton generateItems = new JButton();
+        String generateItemsLabel = "Generate a Number\nOf Random Items";
+        generateItems.setText("<html>" + generateItemsLabel.replaceAll("\\n", "<br>") + "</html>");
 
         MasterAgentButton.addActionListener(new ActionListener() {
             @Override
@@ -171,9 +172,9 @@ public class App {
                         throw new Exception("Jade Container Controller is NULL.");
                     }
 
-                    int capacity = getDaCapacity("Enter Capacity For Delivery Agent:");
+                    int capacity = getIntValue("Enter Capacity For Delivery Agent:", "",50, false);
 
-                    if(capacity == CANCEL_DA) {
+                    if(capacity == CANCEL) {
                         System.out.println("Cancelled Creation of DA");
                         return;
                     }
@@ -200,15 +201,39 @@ public class App {
             }
         });
 
+        //3 list masterInventory
+        listMasterInventory.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                JTextArea textArea = new JTextArea(15, 20);
+                JScrollPane scrollPane = new JScrollPane(textArea);
+                scrollPane.setPreferredSize(new Dimension(300, 300));
 
-        //*3: CHECK FOR AGENT DETAILS BUTTON LISTENER
+                textArea.append(o2a.listItems());
+
+                JFrame window = new JFrame("Master Router Inventory");
+                Dimension frameDimension = new Dimension(300, 300);
+                window.setSize(frameDimension);
+                window.add(scrollPane);
+                window.pack();
+                window.setVisible(true);
+            }
+        });
+
+        //*4: CHECK FOR AGENT DETAILS BUTTON LISTENER
         CheckAgentButton.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
 
+                if(agentInt == 0) {
+                    System.out.println("There Are No Active Delivery Agents On The System");
+                    return;
+                }
+
                 int agentIndex = getDaIndex("Enter Value Between 1 - " + agentInt + ":");
 
-                if(agentIndex == CANCEL_DA) {
+                if(agentIndex == CANCEL) {
+                    System.out.println("Checking of Delivery Agent Status Cancelled");
                     return;
                 }
 
@@ -227,7 +252,138 @@ public class App {
             }
         });
 
-        JFrame appFrame = new JFrame("App");
+        //5 AddItem Action Listener
+        addItem.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                JFrame addItemWindow = new JFrame("Add Item");
+
+                GridBagLayout layout = new GridBagLayout();
+                GridBagConstraints gbc = new GridBagConstraints();
+
+                JLabel itemName = new JLabel("Item Name: ");
+                JLabel itemDestination = new JLabel("Destination: (Between 1 - " + (nodeCount - 1) + ") ");
+                JLabel itemWeight = new JLabel("Weight: ");
+                JLabel itemSize = new JLabel("Size: ");
+
+                JTextField itemNameInput = new JTextField();
+                itemNameInput.setPreferredSize(new Dimension(75, 20));
+                JTextField itemDestinationInput = new JTextField();
+                itemDestinationInput.setPreferredSize(new Dimension(75, 20));
+                JTextField itemWeightInput = new JTextField();
+                itemWeightInput.setPreferredSize(new Dimension(75, 20));
+                JTextField itemSizeInput = new JTextField();
+                itemSizeInput.setPreferredSize(new Dimension(75, 20));
+
+                JButton addItem = new JButton("Add Item");
+                addItem.addActionListener(new ActionListener() {
+                    @Override
+                    public void actionPerformed(ActionEvent e) {
+                        String nameTemp = itemNameInput.getText();
+                        String destTemp = itemDestinationInput.getText();
+                        String weightTemp = itemWeightInput.getText();
+                        String sizeTemp = itemSizeInput.getText();
+
+                        try{
+                            if(nameTemp.isEmpty() || destTemp.isEmpty() || weightTemp.isEmpty() || sizeTemp.isEmpty()) {
+                                throw new Exception();
+                            }
+
+                            int destInt = Integer.parseInt(destTemp);
+                            int weightInt = Integer.parseInt(weightTemp);
+                            int sizeInt = Integer.parseInt(sizeTemp);
+
+                            if(destInt < 1 || destInt >= nodeCount) {
+                                throw new Exception();
+                            }
+
+                            Item item = new Item(itemInt, nameTemp, destInt, weightInt, sizeInt);
+                            o2a.AddItemToInventory(item);
+                            itemInt++;
+                            addItemWindow.dispose();
+                        } catch(Exception ex) {
+                            System.out.println("Invalid Data Entered. Item Not Created.");
+                            return;
+                        }
+                    }
+                });
+
+                Insets inset = new Insets(5, 5, 5, 5);
+
+                addItemWindow.setLayout(layout);
+
+                gbc.gridx = 0;
+                gbc.gridy = 0;
+                gbc.insets = inset;
+                addItemWindow.add(itemName, gbc);
+
+                gbc.gridx = 0;
+                gbc.gridy = 1;
+                gbc.insets = inset;
+                addItemWindow.add(itemDestination, gbc);
+
+                gbc.gridx = 0;
+                gbc.gridy = 2;
+                gbc.insets = inset;
+                addItemWindow.add(itemWeight, gbc);
+
+                gbc.gridx = 0;
+                gbc.gridy = 3;
+                gbc.insets = inset;
+                addItemWindow.add(itemSize, gbc);
+
+                gbc.gridx = 1;
+                gbc.gridy = 0;
+                gbc.insets = inset;
+                addItemWindow.add(itemNameInput, gbc);
+
+                gbc.gridx = 1;
+                gbc.gridy = 1;
+                gbc.insets = inset;
+                addItemWindow.add(itemDestinationInput, gbc);
+
+                gbc.gridx = 1;
+                gbc.gridy = 2;
+                gbc.insets = inset;
+                addItemWindow.add(itemWeightInput, gbc);
+
+                gbc.gridx = 1;
+                gbc.gridy = 3;
+                gbc.insets = inset;
+                addItemWindow.add(itemSizeInput, gbc);
+
+                gbc.gridx = 1;
+                gbc.gridy = 4;
+                gbc.insets = inset;
+                addItemWindow.add(addItem, gbc);
+
+                addItemWindow.setSize(300, 250);
+                addItemWindow.setVisible(true);
+            }
+        });
+
+        //5 GenerateItems Action Listener
+        generateItems.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                int count = getIntValue("Enter Number Of Items to Generate", "", 1, false);
+
+                if(count == CANCEL) {
+                    return;
+                }
+
+                Random r = new Random();
+
+                for(int i = 0; i < count; i++) {
+                    Item item = new Item(itemInt, "Item" + itemInt, r.nextInt(nodeCount - 1) + 1, r.nextInt(WEIGHT_SIZE_MODIFIER - 1) + 1, r.nextInt(WEIGHT_SIZE_MODIFIER - 1) + 1);
+                    itemInt++;
+
+                    o2a.AddItemToInventory(item);
+                }
+            }
+        });
+
+        JFrame appFrame = new JFrame("Vehicle Routing App");
 
         GridBagLayout layout = new GridBagLayout();
         GridBagConstraints gbc = new GridBagConstraints();
@@ -237,36 +393,64 @@ public class App {
         JLabel heading = new JLabel("<html><h1><strong><i>Vehicle Routing</i></strong></h1><hr></html>");
         gbc.gridx = 1;
         gbc.gridy = 0;
-        gbc.ipadx = 50;
-        gbc.ipady = 50;
-
+        gbc.insets = new Insets(10, 10, 10, 10);
         appFrame.add(heading, gbc);
 
         gbc.gridx = 0;
         gbc.gridy = 1;
+        gbc.insets = new Insets(10, 10, 0, 0);
+        MasterAgentButton.setPreferredSize(new Dimension(150, 45));
         appFrame.add(MasterAgentButton, gbc);
-
-        gbc.gridx = 0;
-        gbc.gridy = 2;
-        appFrame.add(DeliveryAgentButton, gbc);
-
-        gbc.gridx = 0;
-        gbc.gridy = 3;
-        appFrame.add(CheckAgentButton, gbc);
 
         gbc.gridx = 1;
         gbc.gridy = 1;
-        appOutputScroll.setPreferredSize(new Dimension(650, 100));
-        appFrame.add(appOutputScroll, gbc);
+        gbc.insets = new Insets(10, 10, 0, 0);
+        listMasterInventory.setPreferredSize(new Dimension(150, 45));
+        appFrame.add(listMasterInventory, gbc);
+
+        gbc.gridx = 0;
+        gbc.gridy = 2;
+        gbc.insets = new Insets(10, 10, 0, 0);
+        DeliveryAgentButton.setPreferredSize(new Dimension(150, 45));
+        appFrame.add(DeliveryAgentButton, gbc);
 
         gbc.gridx = 1;
         gbc.gridy = 2;
-        agentOutputScroll.setPreferredSize(new Dimension(650, 100));
-        appFrame.add(agentOutputScroll, gbc);
+        gbc.insets = new Insets(10, 10, 0, 0);
+        CheckAgentButton.setPreferredSize(new Dimension(150, 45));
+        appFrame.add(CheckAgentButton, gbc);
+
+        gbc.gridx = 0;
+        gbc.gridy = 3;
+        gbc.insets = new Insets(10, 10, 0, 0);
+        addItem.setPreferredSize(new Dimension(150, 45));
+        appFrame.add(addItem, gbc);
 
         gbc.gridx = 1;
         gbc.gridy = 3;
-        snifferOutputScroll.setPreferredSize(new Dimension(650, 100));
+        gbc.insets = new Insets(10, 10, 0, 0);
+        generateItems.setPreferredSize(new Dimension(150, 45));
+        appFrame.add(generateItems, gbc);
+
+        gbc.gridx = 2;
+        gbc.gridy = 1;
+        gbc.gridheight = 2;
+        gbc.insets = new Insets(10, 10, 0, 10);
+        appOutputScroll.setPreferredSize(new Dimension(700, 150));
+        appFrame.add(appOutputScroll, gbc);
+
+        gbc.gridx = 2;
+        gbc.gridy = 3;
+        gbc.gridheight = 2;
+        gbc.insets = new Insets(10, 10, 0, 10);
+        agentOutputScroll.setPreferredSize(new Dimension(700, 150));
+        appFrame.add(agentOutputScroll, gbc);
+
+        gbc.gridx = 2;
+        gbc.gridy = 5;
+        gbc.gridheight = 2;
+        gbc.insets = new Insets(10, 10, 10, 10);
+        snifferOutputScroll.setPreferredSize(new Dimension(700, 100));
         appFrame.add(snifferOutputScroll, gbc);
 
         appFrame.setSize(0, 0);
@@ -279,55 +463,52 @@ public class App {
 
         try {
             App app = new App();
-        }
-        catch(Exception ex) {
+        } catch(Exception ex) {
             ex.printStackTrace();
         }
 
 
     }
 
-    //Creates an input window that requires an input from the user
-    //Pressing cancel, or inputting an invalid response causes another window to appear
-    //Returns a valid int
-    public int getNodeCount(String message) {
-        String input = JOptionPane.showInputDialog(null, message, "5");
+    //Creates an input window that requires an input from the user, using the message + additionalMessage and initialValue parameters
+    //
+    //Input is validated, if valid
+    //      -The value is returned
+    //      -Otherwise return another call of this method
+    //
+    //If the required parameter is true
+    //      -Cancelling the dialog returns another call of this method
+    //      -Otherwise returns the CANCEL constant
+    public int getIntValue(String message, String additionalMessage, int initialValue, boolean required) {
+        String input = JOptionPane.showInputDialog(null, additionalMessage + message, initialValue);
         try{
             if(!input.isEmpty()) {
                int result = Integer.parseInt(input);
-               return result;
+               if(result > 0) {
+                   return result;
+               }
+               else {
+                   return getIntValue(message, "Number Cannot Be Negative.\n", initialValue, required);
+               }
             }
             else {
-                return getNodeCount("Do Not Leave Blank.\nEnter Number of Map Nodes:");
+                return getIntValue(message,"Do Not Leave Blank.\n", initialValue, required);
             }
         } catch(NumberFormatException ex) {
-            return getNodeCount("Enter a Valid Number.\nEnter Number of Map Nodes:");
+            return getIntValue(message, "Enter a Valid Number.\n", initialValue, required);
         } catch(NullPointerException ex) {
-            return getNodeCount("Number of Nodes is Required.\nEnter Number of Map Nodes:");
+            if(required) {
+                return getIntValue(message ,"Number of Nodes is Required.\n", initialValue, required);
+            }
+            else {
+                return CANCEL;
+            }
         }
     }
 
-    //Works in the same way as getNodeCount(), but returns the CANCEL_DA constant if cancel is pressed
-    public int getDaCapacity(String message) {
-        String input = JOptionPane.showInputDialog(null, message, "50");
-        try{
-            if(!input.isEmpty()) {
-                int result = Integer.parseInt(input);
-                return result;
-            }
-            else {
-                return getDaCapacity("Do Not Leave Blank.\nEnter Capacity For Delivery Agent:");
-            }
-        } catch(NumberFormatException ex) {
-            return getDaCapacity("Enter a Valid Number.\nEnter Capacity For Delivery Agent:");
-        } catch(NullPointerException ex) {
-            return CANCEL_DA;
-        }
-    }
-
-    //Works in the same way as getDaCapacity(), but returns the CANCEL_DA constant if cancel is pressed
-    //Additionally, returned value must be <= agentInt
-    //Value returned is inputted value -1, to work appropriately with the index
+    //Works in the same way as getIntValue(), but always returns the CANCEL_DA constant if cancel is pressed
+    //Additionally, inputted value must be <= agentInt and >= 1
+    //Value returned is inputted value - 1, to work appropriately with the index
     public int getDaIndex(String message) {
         String input = JOptionPane.showInputDialog(null, message, null);
         try{
@@ -346,13 +527,13 @@ public class App {
         } catch(NumberFormatException ex) {
             return getDaIndex("Enter a Valid Number.\nEnter Value Between 1 - " + agentInt + ":");
         } catch(NullPointerException ex) {
-            return CANCEL_DA;
+            return CANCEL;
         }
     }
 
     //Test Text Area Methods
     public class TextUpdater {
-        JTextArea prevTarget;
+        JTextArea prevTarget = appOutput;
 
         private void updateText(final String text) {
             SwingUtilities.invokeLater(new Runnable() {
@@ -360,11 +541,11 @@ public class App {
                 public void run() {
                     JTextArea target = appOutput;
 
-                    if(text.contains(DA_TEXT)) {
-                        target = agentOutput;
-                    }
-                    else if(text.contains(SNIFFER_TEXT)) {
+                    if(text.contains(Message.MESSAGE)) {
                         target = snifferOutput;
+                    }
+                    else if(text.contains(DA_TEXT)) {
+                        target = agentOutput;
                     }
 
                     if(text.equals(System.lineSeparator())) {

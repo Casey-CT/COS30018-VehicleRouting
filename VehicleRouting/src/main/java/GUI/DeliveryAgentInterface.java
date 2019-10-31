@@ -1,8 +1,11 @@
 package GUI;
 
+import jade.core.AID;
+
 import java.io.OutputStream;
 
 public interface DeliveryAgentInterface {
-    public String getData();
-    public void OverwriteOutput(OutputStream out);
+    String getData();
+    void OverwriteOutput(OutputStream out);
+    AID getAgentName();
 }
