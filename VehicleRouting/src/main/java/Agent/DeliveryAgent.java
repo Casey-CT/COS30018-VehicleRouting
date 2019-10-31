@@ -83,6 +83,7 @@ public class DeliveryAgent extends Agent implements DeliveryAgentInterface {
             message.addReceiver(MRA_ID);
             message.setContent(content);
             send(message);
+            Message.outputMessage(message);
         }
         else {
             try{
@@ -139,6 +140,8 @@ public class DeliveryAgent extends Agent implements DeliveryAgentInterface {
                                 send(reply);
                                 System.out.println(myAgent.getLocalName() + ": Sending Inventory Failure Message");
                             }
+
+                            Message.outputMessage(reply);
                         } catch (Exception ex) {
                             ex.printStackTrace();
                             System.out.println(myAgent.getLocalName() + ": Caused Exception While Processing Inventory Message");
@@ -159,6 +162,8 @@ public class DeliveryAgent extends Agent implements DeliveryAgentInterface {
                                 send(reply);
                                 System.out.println(myAgent.getLocalName() + ": Sending Path Failure Message");
                             }
+
+                            Message.outputMessage(reply);
                         } catch (Exception ex) {
                             ex.printStackTrace();
                             System.out.println(myAgent.getLocalName() + ": Caused Exception While Processing Path Message");
@@ -189,6 +194,7 @@ public class DeliveryAgent extends Agent implements DeliveryAgentInterface {
                         reply.setPerformative(ACLMessage.INFORM);
                         reply.setContent(capacity + "," + currentLocation);
                         send(reply);
+                        Message.outputMessage(reply);
                         System.out.println(myAgent.getLocalName() + ": Sending Status Message");
                     }
 
@@ -235,36 +241,27 @@ public class DeliveryAgent extends Agent implements DeliveryAgentInterface {
     //Deserializes an Inventory from the json paramater
     //Compares the given inventory against this Delivery Agents capacity, and Whether it is a valid inventory
     //If it is, it attempts to add the supplied inventory to its own inventory object (using the addInventory() method from the Inventory class)
-    //Sends the Master Agent a reply, with either success or failure
+    //returns the result of inventory.addIntentory(), using the deserialized json inventory
     private boolean loadInventory(String json)  {
         Inventory temp = Inventory.deserialize(json);
-        ACLMessage reply = new ACLMessage(ACLMessage.INFORM);
         if(!temp.isEmpty()){
             if(!((inventory.getTotalSize() + temp.getTotalSize()) > getCapacity())) {
                 if(inventory.addInventory(temp)){
                     System.out.println(getLocalName() + ": Items Were Added.\n" + inventory.listItems());
-                    reply.setContent(Message.INVENTORY_SUCCESS);
-                    send(reply);
                     return true;
                 }
                 else {
                     System.out.println(getLocalName() + ": No Items Were Added.");
-                    reply.setContent(Message.INVENTORY_FAILURE);
-                    send(reply);
                     return false;
                 }
             }
             else {
                 System.out.println(getLocalName() + ": Supplied Inventory Exceeded Capacity.");
-                reply.setContent(Message.INVENTORY_FAILURE);
-                send(reply);
                 return false;
             }
         }
         else {
             System.out.println(getLocalName() + ": Supplied Inventory was Empty.");
-            reply.setContent(Message.INVENTORY_FAILURE);
-            send(reply);
             return false;
         }
     }
@@ -280,18 +277,13 @@ public class DeliveryAgent extends Agent implements DeliveryAgentInterface {
     //Sends either success of failure to the Master Agents
     private boolean loadPath(String json) {
         Path p = Path.deserialize(json);
-        ACLMessage reply = new ACLMessage(ACLMessage.INFORM);
         if(p.isPathValid()) {
             path = p;
             System.out.println(getLocalName() + ": Path Set");
-            reply.setContent(Message.PATH_SUCCESS);
-            send(reply);
             return true;
         }
         else{
             System.out.println(getLocalName() + ": Supplied Path was Invalid");
-            reply.setContent(Message.PATH_FAILURE);
-            send(reply);
             return false;
         }
     }

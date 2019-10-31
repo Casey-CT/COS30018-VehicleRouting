@@ -252,6 +252,7 @@ public class MasterRoutingAgent extends Agent implements MyAgentInterface {
                                             reply.setPerformative(ACLMessage.REQUEST);
                                             reply.setContent(Message.RETURN + ":" + jsonPath);
                                             myAgent.send(reply);
+                                            Message.outputMessage(reply);
                                         }
                                     } catch(Exception ex) {
                                         ex.printStackTrace();
@@ -268,7 +269,7 @@ public class MasterRoutingAgent extends Agent implements MyAgentInterface {
                         }
                         else if(msg.getPerformative() == ACLMessage.FAILURE) {
                             try {
-                                throw new Exception(myAgent.getLocalName() + ": " + msg.getSender().getLocalName() + " has run into an error.");
+                                throw new Exception(myAgent.getLocalName() + ": " + msg.getSender().getLocalName() + " has run into an error while processing messages");
                             } catch(Exception ex) {
                                 ex.printStackTrace();
                             }
@@ -418,7 +419,7 @@ public class MasterRoutingAgent extends Agent implements MyAgentInterface {
                     //Debug Stuff - Prints the AID of each Agent Found
                     System.out.println(getLocalName() + ": Found " + agents.size() + " Delivery Agents");
                     for(AgentData agent: agents) {
-                        System.out.println(agent.getName());
+                        System.out.println(agent.getName().getLocalName());
                     }
 
                     if(agents.size() > 0) {
@@ -431,6 +432,7 @@ public class MasterRoutingAgent extends Agent implements MyAgentInterface {
                         capacity_request.setConversationId("processRoute");
                         capacity_request.setReplyWith("Request" + System.currentTimeMillis());
                         myAgent.send(capacity_request);
+                        Message.outputMessage(capacity_request);
 
                         mt = MessageTemplate.and(MessageTemplate.MatchConversationId("processRoute"), MessageTemplate.MatchInReplyTo(capacity_request.getReplyWith()));
 
@@ -533,6 +535,7 @@ public class MasterRoutingAgent extends Agent implements MyAgentInterface {
                             inventory_add.addReceiver(agent.getName());
                             inventory_add.setContent(Message.INVENTORY + ":" + agent.getJsonInventory());
                             myAgent.send(inventory_add);
+                            Message.outputMessage(inventory_add);
                         }
                         else {
                             System.out.println(getLocalName() + ": " + agent.getName() + " has been given no items to deliver.");
@@ -627,6 +630,7 @@ public class MasterRoutingAgent extends Agent implements MyAgentInterface {
                             path_add.addReceiver(agent.getName());
                             path_add.setContent(Message.PATH + ":" + agent.getJsonPath());
                             myAgent.send(path_add);
+                            Message.outputMessage(path_add);
                         }
                     }
 
@@ -701,6 +705,7 @@ public class MasterRoutingAgent extends Agent implements MyAgentInterface {
                     }
                     start.setContent(Message.START);
                     myAgent.send(start);
+                    Message.outputMessage(start);
 
                     System.out.println(getLocalName() + ": Delivery Agents Requested to Start");
 

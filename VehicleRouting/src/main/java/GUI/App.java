@@ -2,12 +2,11 @@ package GUI;
 
 import Agent.DeliveryAgent;
 import Agent.MasterRoutingAgent;
+import Communication.Message;
 import Item.Item;
 import jade.core.Profile;
 import jade.core.ProfileImpl;
 import jade.core.Runtime;
-import jade.domain.JADEAgentManagement.SniffOn;
-import jade.tools.sniffer.Sniffer;
 import jade.wrapper.AgentController;
 import jade.wrapper.ContainerController;
 
@@ -26,10 +25,8 @@ import java.util.Random;
 import javax.swing.SwingUtilities;
 
 //TODO:
-// ADD ITEM TO MASTERROUTER'S INVENTORY BY BUTTON
 // SNIFFER AGENT (Console output)
-// EXTENSION: IMAGE OF MAP TO GUI (Alex actually needs help send help please)
-// EXTENSION: Animations
+// EXTENSION: IMAGE OF MAP TO GUI + Lines For DA Path
 // Comment this code
 public class App {
 
@@ -50,7 +47,6 @@ public class App {
     //TODO: Fill in Sniffer Text
     private static final String MRA_TEXT = "MasterRoutingAgent";
     private static final String DA_TEXT = "DeliveryAgent";
-    private static final String SNIFFER_TEXT = "Sniffer";
 
     //Redirected Output Stream
     private TextUpdater textUpdater = new TextUpdater();
@@ -538,7 +534,7 @@ public class App {
 
     //Test Text Area Methods
     public class TextUpdater {
-        JTextArea prevTarget;
+        JTextArea prevTarget = appOutput;
 
         private void updateText(final String text) {
             SwingUtilities.invokeLater(new Runnable() {
@@ -546,11 +542,11 @@ public class App {
                 public void run() {
                     JTextArea target = appOutput;
 
-                    if(text.contains(DA_TEXT)) {
-                        target = agentOutput;
-                    }
-                    else if(text.contains(SNIFFER_TEXT)) {
+                    if(text.contains(Message.MESSAGE)) {
                         target = snifferOutput;
+                    }
+                    else if(text.contains(DA_TEXT)) {
+                        target = agentOutput;
                     }
 
                     if(text.equals(System.lineSeparator())) {
