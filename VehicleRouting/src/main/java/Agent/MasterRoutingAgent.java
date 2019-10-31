@@ -768,30 +768,35 @@ public class MasterRoutingAgent extends Agent implements MyAgentInterface {
         da_capacity = temp.stream().mapToInt(o -> o).toArray();
         temp.clear();
 
-
-
         //The average weight per delivery agent is the sum of the total weights of all the packages divided by the number of delivery agents
         int averageWeightPerDA = sum(weight) / D;
 
-
-
         //GENETIC ALGORITHM:
-
-
+        //List of all the delivery locations
         ArrayList<Location> locations = new ArrayList<>();
 
+        //Index of locations
+        //Each location has an index that will be used for calculating distance.
         int index = 1;
+        //Creating a null location for use in the following for loop
         Location location = null;
+
+        //Iterating over the rows
         for(int x = 0; x < mapDist.length; x++) {
+            //Iterating over columns
             for(int y = 0; y < mapDist.length; y++) {
+                //Create a new location at (x,y) having the given index, demand of 0
                 location = new Location(x, y, index, 0);
                 int demand = 0;
+                //Check if any item is destined for that location
                 for(int z = 1; z <= masterInventory.getLength(); z++) {
                     Item item = masterInventory.getItem(z);
                     if(item.getDestination() == index) {
+                        //Add the weight of the item to the demand of that location
                         demand += item.getWeight();
                     }
                 }
+                //Set the overall demand for that location
                 location.setDemand(demand);
                 System.out.println("Location : " + index + " has a demand of: " + demand);
             }
@@ -804,31 +809,44 @@ public class MasterRoutingAgent extends Agent implements MyAgentInterface {
             System.out.println("THERE EXISTS A LOCATION WITH INDEX: " + l.getIndex());
         }
 
+        //Genetic algorithm values
         int numberOfEvolutions = 2000;
-        int populationSize = 200;
+        int populationSize = 100;
 
         int numberOfLocations = locations.size();
-        int incompleteDeliveryPenalty = 150;
-        int incompleteTruckPenalty = 20;
-        int distancePenalty = 20;
 
-        GA.FitnessFunction fitnessFunction = new GA.FitnessFunction(D, numberOfLocations, da_capacity[0], incompleteDeliveryPenalty, incompleteTruckPenalty, distancePenalty);
+        //Fitness penalty when the total weight of packages assigned to a truck exceeds its capacity
+        int truckOverloadPenalty = 500;
+        //Fitness penalty when a truck's capacity is not completely utilized
+        int incompleteTruckPenalty = 2;
+        //Fitness penalty for the distance travelled by the truck
+        int distancePenalty = 25;
+
+        //Creating a fitnessfunction object with the above values
+        GA.FitnessFunction fitnessFunction = new GA.FitnessFunction(D, numberOfLocations, da_capacity[0], truckOverloadPenalty, incompleteTruckPenalty, distancePenalty);
         fitnessFunction.setLocations(locations);
 
+        //Creating a default JGAP configuration object
         Configuration configuration = new DefaultConfiguration();
         configuration.setPreservFittestIndividual(true);
+        configuration.setKeepPopulationSizeConstant(true);
 
+        //Creating two genetic operators to control mutation and crossover
         MutationOperator mutationOperator = null;
         CrossoverOperator crossoverOperator = null;
 
+        //JGAP throws InvalidConfigurationException for these statments
         try {
+            //Specifying the configuration to use our custom fitness function
             configuration.setFitnessFunction(fitnessFunction);
             configuration.setPopulationSize(populationSize);
 
             mutationOperator = new MutationOperator(configuration);
+            //1 in 10 chromosomes will undergo mutation
             mutationOperator.setMutationRate(10);
-
+            //Crossover rate is default
             crossoverOperator = new CrossoverOperator(configuration);
+            crossoverOperator.setAllowFullCrossOver(true);
 
             configuration.addGeneticOperator(mutationOperator);
             configuration.addGeneticOperator(crossoverOperator);
@@ -836,6 +854,7 @@ public class MasterRoutingAgent extends Agent implements MyAgentInterface {
             System.out.println("Error in Genetic Algorithm configuration: " + e.getMessage());
         }
 
+        //Initializing the genes array
         final Gene[] genes = new Gene[2 * numberOfLocations];
 
         for (int i = 0; i < numberOfLocations; i++) {
@@ -846,11 +865,12 @@ public class MasterRoutingAgent extends Agent implements MyAgentInterface {
                 System.out.println("Error in Genetic Algorithm gene configuration: " + e.getMessage());
             }
         }
-
+        //Store the population
         Genotype population = null;
 
         try {
             configuration.setSampleChromosome(new Chromosome(configuration, genes));
+            //Generate a random initial population
             population = Genotype.randomInitialGenotype(configuration);
         } catch(InvalidConfigurationException e) {
             System.out.println("Invalid configuration" + e.getMessage());
@@ -859,6 +879,7 @@ public class MasterRoutingAgent extends Agent implements MyAgentInterface {
         System.out.println("Number of generations to evolve: " + numberOfEvolutions);
 
         for(int i = 1; i <= numberOfEvolutions; i++) {
+            //Output the population details after every 100 evolutions
             if (i % 100 == 0) {
                 IChromosome bestChromosome = population.getFittestChromosome();
                 System.out.println("Best fitness after " + i + " generations: " + bestChromosome.getFitnessValue());
@@ -869,14 +890,19 @@ public class MasterRoutingAgent extends Agent implements MyAgentInterface {
                 }
                 System.out.println("Total distance of all vehicles: " + totalDistanceOfAllVehicles);
             }
+            //Population must evolve
             population.evolve();
         }
 
+        //Store the overall fittest chromosome
         IChromosome bestChromosome = population.getFittestChromosome();
         double totalDistanceOfAllVehicles = 0.0;
 
+        int flag = 0;
+
         ArrayList<List<Integer>> results = new ArrayList<>();
 
+        //Store and print the optimum routes for the delivery agents
         for(int i = 1; i <= D; i++) {
             List<Integer> route = fitnessFunction.getPositions(i, bestChromosome, fitnessFunction, true);
             double routeDistance = fitnessFunction.computeTotalDistance(i, bestChromosome, fitnessFunction);
@@ -885,23 +911,22 @@ public class MasterRoutingAgent extends Agent implements MyAgentInterface {
             List<Integer> result = new ArrayList<>(Collections.singletonList(1));
             result.addAll(route.stream().map(aList -> aList + 1).collect(Collectors.toList()));
 
+            if(result.contains(new Integer(1))) {
+                flag++;
+            }
+
+            if(flag > 1) {
+                if (result.contains(new Integer(1))) {
+                    result.remove(new Integer(1));
+                }
+            }
+
             results.add(result);
-
-
-
             System.out.println("Delivery vehicle " + i + " : " + result);
             System.out.println("Total distance " + routeDistance);
             System.out.println("Weight of packages delivered: " + vehicleWeight);
             totalDistanceOfAllVehicles += routeDistance;
         }
-
-
-        for(int i = 1; i < agents.size(); i++) {
-            if(results.get(i).contains(1)) {
-                results.get(i).remove(0);
-            }
-        }
-
 
         System.out.println("Total distance of all vehicles: " + totalDistanceOfAllVehicles);
 
