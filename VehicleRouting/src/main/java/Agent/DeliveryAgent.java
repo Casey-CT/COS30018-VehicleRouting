@@ -8,40 +8,39 @@ import Item.Item;
 import jade.core.AID;
 import jade.core.Agent;
 import jade.core.behaviours.*;
-import jade.domain.mobility.BehaviourLoadingVocabulary;
 import jade.lang.acl.ACLMessage;
-import jade.lang.acl.MessageTemplate;
-import jade.domain.DFService;
-import jade.domain.FIPAException;
-import jade.domain.FIPAAgentManagement.DFAgentDescription;
-import jade.domain.FIPAAgentManagement.ServiceDescription;
 
 import java.io.OutputStream;
 import java.io.PrintStream;
 import java.util.*;
 
 public class DeliveryAgent extends Agent implements DeliveryAgentInterface {
+    //Delivery Agents have a Location
+    private int _x = 0;
+
+    private int _y = 0;
+
     //This agents capacity (compared against the weight of the items in its inventory)
     //Has a default value of 0, so if capacity is not specified when an agent of this type is spun up, it can be terminated easily
     private int capacity = 0;
 
     //Current Node ID of the location this delivery agent is currently at
     //TODO: Decide if map begins indexing at 0 or 1, and update this default value
-	private int currentLocation = 0;
+    private int currentLocation = 0;
 
-	//Inventory to be used by this object
-	private Inventory inventory = new Inventory();
+    //Inventory to be used by this object
+    private Inventory inventory = new Inventory();
 
-	//Path to be used by this object
-	private Path path;
+    //Path to be used by this object
+    private Path path;
 
-	//Saved copy of the Master Routing Agents Jade ID, to be used by the messageMaster() function
-	private AID MRA_ID;
+    //Saved copy of the Master Routing Agents Jade ID, to be used by the messageMaster() function
+    private AID MRA_ID;
 
-	//Boolean used as a flag to signal if DA is returning to depot
+    //Boolean used as a flag to signal if DA is returning to depot
     private boolean returning = false;
 
-	//Returns this agents capacity
+    //Returns this agents capacity
     public int getCapacity() {
         return capacity;
     }
@@ -89,6 +88,7 @@ public class DeliveryAgent extends Agent implements DeliveryAgentInterface {
             message.addReceiver(MRA_ID);
             message.setContent(content);
             send(message);
+            Message.outputMessage(message);
         }
         else {
             try{
@@ -145,6 +145,8 @@ public class DeliveryAgent extends Agent implements DeliveryAgentInterface {
                                 send(reply);
                                 System.out.println(myAgent.getLocalName() + ": Sending Inventory Failure Message");
                             }
+
+                            Message.outputMessage(reply);
                         } catch (Exception ex) {
                             ex.printStackTrace();
                             System.out.println(myAgent.getLocalName() + ": Caused Exception While Processing Inventory Message");
@@ -165,6 +167,8 @@ public class DeliveryAgent extends Agent implements DeliveryAgentInterface {
                                 send(reply);
                                 System.out.println(myAgent.getLocalName() + ": Sending Path Failure Message");
                             }
+
+                            Message.outputMessage(reply);
                         } catch (Exception ex) {
                             ex.printStackTrace();
                             System.out.println(myAgent.getLocalName() + ": Caused Exception While Processing Path Message");
@@ -195,6 +199,7 @@ public class DeliveryAgent extends Agent implements DeliveryAgentInterface {
                         reply.setPerformative(ACLMessage.INFORM);
                         reply.setContent(capacity + "," + currentLocation);
                         send(reply);
+                        Message.outputMessage(reply);
                         System.out.println(myAgent.getLocalName() + ": Sending Status Message");
                     }
 
@@ -241,36 +246,27 @@ public class DeliveryAgent extends Agent implements DeliveryAgentInterface {
     //Deserializes an Inventory from the json paramater
     //Compares the given inventory against this Delivery Agents capacity, and Whether it is a valid inventory
     //If it is, it attempts to add the supplied inventory to its own inventory object (using the addInventory() method from the Inventory class)
-    //Sends the Master Agent a reply, with either success or failure
+    //returns the result of inventory.addIntentory(), using the deserialized json inventory
     private boolean loadInventory(String json)  {
         Inventory temp = Inventory.deserialize(json);
-        ACLMessage reply = new ACLMessage(ACLMessage.INFORM);
         if(!temp.isEmpty()){
             if(!((inventory.getTotalSize() + temp.getTotalSize()) > getCapacity())) {
                 if(inventory.addInventory(temp)){
                     System.out.println(getLocalName() + ": Items Were Added.\n" + inventory.listItems());
-                    reply.setContent(Message.INVENTORY_SUCCESS);
-                    send(reply);
                     return true;
                 }
                 else {
                     System.out.println(getLocalName() + ": No Items Were Added.");
-                    reply.setContent(Message.INVENTORY_FAILURE);
-                    send(reply);
                     return false;
                 }
             }
             else {
                 System.out.println(getLocalName() + ": Supplied Inventory Exceeded Capacity.");
-                reply.setContent(Message.INVENTORY_FAILURE);
-                send(reply);
                 return false;
             }
         }
         else {
             System.out.println(getLocalName() + ": Supplied Inventory was Empty.");
-            reply.setContent(Message.INVENTORY_FAILURE);
-            send(reply);
             return false;
         }
     }
@@ -286,18 +282,13 @@ public class DeliveryAgent extends Agent implements DeliveryAgentInterface {
     //Sends either success of failure to the Master Agents
     private boolean loadPath(String json) {
         Path p = Path.deserialize(json);
-        ACLMessage reply = new ACLMessage(ACLMessage.INFORM);
         if(p.isPathValid()) {
             path = p;
             System.out.println(getLocalName() + ": Path Set");
-            reply.setContent(Message.PATH_SUCCESS);
-            send(reply);
             return true;
         }
         else{
             System.out.println(getLocalName() + ": Supplied Path was Invalid");
-            reply.setContent(Message.PATH_FAILURE);
-            send(reply);
             return false;
         }
     }
@@ -395,17 +386,39 @@ public class DeliveryAgent extends Agent implements DeliveryAgentInterface {
         }
     }
 
+    //Getters for x and y
+    public int get_x() {
+        return _x;
+    }
+
+    public int get_y() {
+        return _y;
+    }
+
+    //Setters for x and y
+    public void set_x(int x) {
+        _x = x;
+    }
+
+    public void set_y(int y) {
+        _y = y;
+    }
+
     //Overwriting DeliveryAgentInterface Methods
     @Override
     public String getData() {
-        String s = "Success! \n";
-        s = s + inventory.listItems();
-
-        return s;
+        String result = getLocalName() + "\n" + "Currently At Node: " + getCurrentLocation()
+                + "Carrying " + inventory.getLength() + " items.\n" + inventory.listItems();
+        return result;
     }
 
     @Override
     public void OverwriteOutput(OutputStream out) {
         System.setOut(new PrintStream(out, true));
+    }
+
+    @Override
+    public AID getAgentName() {
+        return getAID();
     }
 }
