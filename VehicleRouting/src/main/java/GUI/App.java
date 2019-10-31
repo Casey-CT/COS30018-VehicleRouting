@@ -102,6 +102,9 @@ public class App {
 
     public App() {
 
+        //Redirect Output
+        System.setOut(new PrintStream(out));
+
         //Create Redirected Console Output Text Areas, ScrollPanes and OutputStreams
         JScrollPane appOutputScroll = new JScrollPane(appOutput);
         JScrollPane agentOutputScroll = new JScrollPane(agentOutput);
@@ -202,33 +205,25 @@ public class App {
         CheckAgentButton.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                AMSAgentDescription[] agents = null;
 
-                GridBagLayout gbl = new GridBagLayout();
+                int agentIndex = getDaIndex("Enter Value Between 1 - " + agentInt + ":");
 
-                JPanel gridButtons = new JPanel(new GridBagLayout());
-                GridBagConstraints gbc = new GridBagConstraints();
+                if(agentIndex == CANCEL_DA) {
+                    return;
+                }
 
-                JFrame window = new JFrame("Check DA");
+                JTextArea textArea = new JTextArea(15, 20);
+                JScrollPane scrollPane = new JScrollPane(textArea);
+                scrollPane.setPreferredSize(new Dimension(300, 300));
 
+                textArea.append(DAo2aList.get(agentIndex).getData());
+
+                JFrame window = new JFrame("Delivery Agent Status");
                 Dimension frameDimension = new Dimension(300, 300);
                 window.setSize(frameDimension);
+                window.add(scrollPane);
+                window.pack();
                 window.setVisible(true);
-
-                try {
-                    Thread.sleep(10);
-
-                    //capacityInt = Integer.parseInt(temp);
-                    System.out.println(DAo2aList.size());
-
-                    for(DeliveryAgentInterface d: DAo2aList) {
-                        System.out.println(d.getData());
-                    }
-
-                    // System.out.println(DAo2aList);
-                } catch (InterruptedException ex) {
-                    ex.printStackTrace();
-                }
             }
         });
 
@@ -325,6 +320,31 @@ public class App {
             }
         } catch(NumberFormatException ex) {
             return getDaCapacity("Enter a Valid Number.\nEnter Capacity For Delivery Agent:");
+        } catch(NullPointerException ex) {
+            return CANCEL_DA;
+        }
+    }
+
+    //Works in the same way as getDaCapacity(), but returns the CANCEL_DA constant if cancel is pressed
+    //Additionally, returned value must be <= agentInt
+    //Value returned is inputted value -1, to work appropriately with the index
+    public int getDaIndex(String message) {
+        String input = JOptionPane.showInputDialog(null, message, null);
+        try{
+            if(!input.isEmpty()) {
+                int result = Integer.parseInt(input);
+                if(result <= agentInt && result >= 1) {
+                    return result - 1;
+                }
+                else {
+                    return getDaIndex("Result Must Be Less Than Or Equal To " + agentInt + "\nEnter Value Between 1 - " + agentInt + ":");
+                }
+            }
+            else {
+                return getDaIndex("Do Not Leave Blank.\nEnter Value Between 1 - " + agentInt + ":");
+            }
+        } catch(NumberFormatException ex) {
+            return getDaIndex("Enter a Valid Number.\nEnter Value Between 1 - " + agentInt + ":");
         } catch(NullPointerException ex) {
             return CANCEL_DA;
         }
