@@ -275,7 +275,7 @@ public class GraphGen {
         return  dMin;
     }
 
-    public static GraphGen generateGraph(int v, int eMin, int eMax, Random r, int dMin, int dMax){
+    public static GraphGen generateGraph(int v, int dMin, int dMax, Random r, int eMin, int eMax){
         GraphGen graphTemp = new GraphGen(v);
         int vTo, vFrom, dRand, eRand, count = 0;
         eRand = ThreadLocalRandom.current().nextInt(eMin, eMax + 1);
@@ -366,7 +366,7 @@ public class GraphGen {
 
             int failed_attempts = 0;
             while (disGraph){
-                graph = generateGraph(v, eMin, eMax, r, dMin, dMax);
+                graph = generateGraph(v, dMin, dMax, r, eMin, eMax);
                 try {
                     disGraph = graph.primMST();
                 } catch (Exception E) {

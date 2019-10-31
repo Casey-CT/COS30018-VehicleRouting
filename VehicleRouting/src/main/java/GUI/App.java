@@ -31,12 +31,12 @@ import javax.swing.SwingUtilities;
 public class App {
 
     //Map Constants
-    //MIN_CON_MODIFIER is multiplied by nodeCount to get the minimum number of connection in the generated graph
-    //MAX_CON_MODIFIER is multiplied by nodeCount to get the maximum number of connection in the generated graph
+    //MIN_CON_MODIFIER is used to calculate the minimum percentage of filled connections
+    //MAX_CON_MODIFIER is used to calculate the maximum percentage of filled connections
     //MIN_DIST is the minimum distance between any two nodes
     //MAX_DIST is the maximum distance between any two nodes
-    private static final int MIN_CON_MODIFIER = 1;
-    private static final int MAX_CON_MODIFIER = 3;
+    private static final int MIN_CON_MODIFIER = 50;
+    private static final int MAX_CON_MODIFIER = 75;
     private static final int MIN_DIST = 5;
     private static final int MAX_DIST = 15;
 
@@ -116,9 +116,8 @@ public class App {
             o2a = AgentCtrl.getO2AInterface(GUI.MyAgentInterface.class);
             o2a.OverwriteOutput(out);
 
-            o2a.GenerateMap(nodeCount, MIN_DIST, MAX_DIST, nodeCount * MIN_CON_MODIFIER, nodeCount * MAX_CON_MODIFIER);
-
-            System.out.println("Attempting to Activate Sniffing Agent");
+            o2a.GenerateMap(nodeCount, MIN_DIST, MAX_DIST, ((nodeCount * nodeCount) * MIN_CON_MODIFIER) / 100, ((nodeCount * nodeCount) * MAX_CON_MODIFIER) / 100);
+            //System.out.println("DEBUG. Number of Nodes: " + nodeCount + " Minimum Connections: " + ((nodeCount * nodeCount) * MIN_CON_MODIFIER) / 100 + " Maximum Connections: " + ((nodeCount * nodeCount) * MAX_CON_MODIFIER) / 100);
 
         } catch (Exception ex) {
             ex.printStackTrace();
@@ -398,12 +397,12 @@ public class App {
         appFrame.add(heading, gbc);
 
         gbc.gridx = 0;
-        gbc.gridy = 0;
+        gbc.gridy = 1;
         gbc.insets = new Insets(10, 10, 0, 0);
         MasterAgentButton.setPreferredSize(new Dimension(150, 45));
         appFrame.add(MasterAgentButton, gbc);
 
-        gbc.gridx = 0;
+        gbc.gridx = 1;
         gbc.gridy = 1;
         gbc.insets = new Insets(10, 10, 0, 0);
         listMasterInventory.setPreferredSize(new Dimension(150, 45));
@@ -415,39 +414,39 @@ public class App {
         DeliveryAgentButton.setPreferredSize(new Dimension(150, 45));
         appFrame.add(DeliveryAgentButton, gbc);
 
-        gbc.gridx = 0;
-        gbc.gridy = 3;
+        gbc.gridx = 1;
+        gbc.gridy = 2;
         gbc.insets = new Insets(10, 10, 0, 0);
         CheckAgentButton.setPreferredSize(new Dimension(150, 45));
         appFrame.add(CheckAgentButton, gbc);
 
         gbc.gridx = 0;
-        gbc.gridy = 4;
+        gbc.gridy = 3;
         gbc.insets = new Insets(10, 10, 0, 0);
         addItem.setPreferredSize(new Dimension(150, 45));
         appFrame.add(addItem, gbc);
 
-        gbc.gridx = 0;
-        gbc.gridy = 5;
-        gbc.insets = new Insets(10, 10, 10, 0);
+        gbc.gridx = 1;
+        gbc.gridy = 3;
+        gbc.insets = new Insets(10, 10, 0, 0);
         generateItems.setPreferredSize(new Dimension(150, 45));
         appFrame.add(generateItems, gbc);
 
-        gbc.gridx = 1;
+        gbc.gridx = 2;
         gbc.gridy = 1;
         gbc.gridheight = 2;
         gbc.insets = new Insets(10, 10, 0, 10);
         appOutputScroll.setPreferredSize(new Dimension(700, 150));
         appFrame.add(appOutputScroll, gbc);
 
-        gbc.gridx = 1;
+        gbc.gridx = 2;
         gbc.gridy = 3;
         gbc.gridheight = 2;
         gbc.insets = new Insets(10, 10, 0, 10);
         agentOutputScroll.setPreferredSize(new Dimension(700, 150));
         appFrame.add(agentOutputScroll, gbc);
 
-        gbc.gridx = 1;
+        gbc.gridx = 2;
         gbc.gridy = 5;
         gbc.gridheight = 2;
         gbc.insets = new Insets(10, 10, 10, 10);
