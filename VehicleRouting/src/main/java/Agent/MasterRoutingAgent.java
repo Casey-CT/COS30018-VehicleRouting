@@ -438,7 +438,7 @@ public class MasterRoutingAgent extends Agent implements MyAgentInterface {
                         step = 1;
                     }
                     else {
-                        System.out.println("No Agents Found");
+                        System.out.println(getLocalName() + ": No Agents Found");
                         finishBehaviour();
                     }
 
