@@ -225,7 +225,7 @@ public class GraphGen {
             }
         }
         //print mst
-        printMST(resultSet);
+        //printMST(resultSet);
         return false;
     }
 
@@ -319,7 +319,7 @@ public class GraphGen {
                     disGraph = graph.primMST();
                 } catch (Exception E) {
                     failed_attempts++;
-                    System.out.println("Graph was disconnected, Trying again: " + failed_attempts);
+                    //System.out.println("Graph was disconnected, Trying again: " + failed_attempts);
                     disGraph = true;
                 }
             }
@@ -328,7 +328,7 @@ public class GraphGen {
                     graph.dijkstra(graph.getMapData(), j, i);
                 }
             }
-            System.out.println("EXPORTABLE 2D ARRAY:");
+            /*System.out.println("EXPORTABLE 2D ARRAY:");
             for (int i = 0; i < v; i++) {
                 for (int j = 0; j < v; j++)
                     if (j == v-1){
@@ -337,9 +337,10 @@ public class GraphGen {
                     }else{
                         System.out.print(graph.getEdge(i, j) + ", ");
                     }
-            }
+            }*/
+            System.out.println("Graph Generated Successfully. " + failed_attempts + " Failed Attempts.");
         } catch (Exception E) {
-            System.out.println("Something went wrong");
+            System.out.println("Generating Graph Caused Exception");
         }
         sc.close();
 
@@ -370,7 +371,7 @@ public class GraphGen {
                     disGraph = graph.primMST();
                 } catch (Exception E) {
                     failed_attempts++;
-                    System.out.println("Graph was disconnected, Trying again: " + failed_attempts);
+                    //System.out.println("Graph was disconnected, Trying again: " + failed_attempts);
                     disGraph = true;
                 }
             }
@@ -381,8 +382,8 @@ public class GraphGen {
                 }
             }
 
-            System.out.println("EXPORTABLE 2D ARRAY:");
-
+            //System.out.println("EXPORTABLE 2D ARRAY:");
+            /*
             for (int i = 0; i < v; i++) {
                 for (int j = 0; j < v; j++)
                     if (j == v-1){
@@ -392,9 +393,11 @@ public class GraphGen {
                         System.out.print(graph.getEdge(i, j) + ", ");
                     }
             }
-
+            */
+            System.out.println("Graph Generated Successfully. " + failed_attempts + " Failed Attempts.");
         } catch (Exception E) {
-            System.out.println("Something went wrong");
+            System.out.println("Generating Graph Caused Exception");
+            E.printStackTrace();
         }
 
         return graph;

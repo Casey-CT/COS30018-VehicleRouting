@@ -8,6 +8,7 @@ import GraphGeneration.GraphGen;
 import GUI.MyAgentInterface;
 import Item.Inventory;
 import Item.Item;
+import jade.core.AID;
 import jade.core.Agent;
 import jade.core.behaviours.Behaviour;
 import jade.core.behaviours.CyclicBehaviour;
@@ -120,6 +121,7 @@ public class MasterRoutingAgent extends Agent implements MyAgentInterface {
         registerO2AInterface(MyAgentInterface.class, this);
 
         //TODO: Remove this Dummy Data
+        /*
         //Dummy Item Data
         masterInventory.addItem(new Item(1, "Item1", 2, 12, 1));
         masterInventory.addItem(new Item(2, "Item2", 3, 50, 1));
@@ -140,7 +142,6 @@ public class MasterRoutingAgent extends Agent implements MyAgentInterface {
         masterInventory.addItem(new Item(17, "Item17", 2, 16, 1));
         masterInventory.addItem(new Item(18, "Item18", 4, 5, 1));
 
-        /*
         //TODO: Replace this with the GraphGen code
         //Dummy Map Data
         //MapData
@@ -391,6 +392,7 @@ public class MasterRoutingAgent extends Agent implements MyAgentInterface {
                         ex.printStackTrace();
                         System.out.println(myAgent.getLocalName() + ": An Error Has Occurred. Stopping this behaviour");
                         finishBehaviour();
+                        break;
                     }
 
                     //TODO: Find a more reliable solution for this
@@ -440,6 +442,7 @@ public class MasterRoutingAgent extends Agent implements MyAgentInterface {
                     else {
                         System.out.println(getLocalName() + ": No Agents Found");
                         finishBehaviour();
+                        break;
                     }
 
                     break;
@@ -466,6 +469,7 @@ public class MasterRoutingAgent extends Agent implements MyAgentInterface {
                                 ex.printStackTrace();
                                 System.out.println(myAgent.getLocalName() + ": An Error Has Occurred. Stopping this behaviour");
                                 finishBehaviour();
+                                break;
                             }
                         }
 
@@ -485,6 +489,12 @@ public class MasterRoutingAgent extends Agent implements MyAgentInterface {
 
                 case 2:
                     //Total Weight of all Items in masterInventory
+                    if(masterInventory.isEmpty()) {
+                        System.out.println(myAgent.getLocalName() + ": Master Inventory is Empty. Stopping this Behaviour");
+                        finishBehaviour();
+                        break;
+                    }
+
                     int weightTotal = masterInventory.getTotalWeight();
 
                     //Total Capacity of all Delivery Agents
@@ -496,6 +506,7 @@ public class MasterRoutingAgent extends Agent implements MyAgentInterface {
                     if(weightTotal > capacityTotal) {
                         System.out.println(myAgent.getLocalName() + ": Mismatch in Total DA Capacity and Total Inventory Weight. Stopping this Behaviour");
                         finishBehaviour();
+                        break;
                     }
 
                     System.out.println(getLocalName() + ": Allocating Inventories and Paths to Each Delivery Agent");
@@ -504,6 +515,7 @@ public class MasterRoutingAgent extends Agent implements MyAgentInterface {
                     if(!solveConstraintProblem()) {
                         System.out.println(getLocalName() + ": No Solution Found. Stopping this Behaviour");
                         finishBehaviour();
+                        break;
                     }
 
                     System.out.println(getLocalName() + ": Inventories and Paths Created and Assigned");
@@ -556,6 +568,7 @@ public class MasterRoutingAgent extends Agent implements MyAgentInterface {
                                                     ex.printStackTrace();
                                                     System.out.println(myAgent.getLocalName() + ": An Error Has Occurred. Stopping this behaviour");
                                                     finishBehaviour();
+                                                    break;
                                                 }
                                             }
                                         }
@@ -567,6 +580,7 @@ public class MasterRoutingAgent extends Agent implements MyAgentInterface {
                                             ex.printStackTrace();
                                             System.out.println(myAgent.getLocalName() + ": An Error Has Occurred. Stopping this behaviour");
                                             finishBehaviour();
+                                            break;
                                         }
                                     }
                                 }
@@ -579,6 +593,7 @@ public class MasterRoutingAgent extends Agent implements MyAgentInterface {
                                 ex.printStackTrace();
                                 System.out.println(myAgent.getLocalName() + ": An Error Has Occurred. Stopping this behaviour");
                                 finishBehaviour();
+                                break;
                             }
                         }
 
@@ -642,6 +657,7 @@ public class MasterRoutingAgent extends Agent implements MyAgentInterface {
                                             ex.printStackTrace();
                                             System.out.println(myAgent.getLocalName() + ": An Error Has Occurred. Stopping this behaviour");
                                             finishBehaviour();
+                                            break;
                                         }
                                     }
                                 }
@@ -654,6 +670,7 @@ public class MasterRoutingAgent extends Agent implements MyAgentInterface {
                                 ex.printStackTrace();
                                 System.out.println(myAgent.getLocalName() + ": An Error Has Occurred. Stopping this behaviour");
                                 finishBehaviour();
+                                break;
                             }
                         }
 
@@ -1283,8 +1300,18 @@ public class MasterRoutingAgent extends Agent implements MyAgentInterface {
     }
 
     @Override
-    public boolean AddItemToInventory(Item i) {
-        return masterInventory.addItem(i);
+    public void AddItemToInventory(Item i) {
+        if(masterInventory.addItem(i)) {
+            System.out.println(getLocalName() + ": Successfully Added Item - " + i);
+        }
+        else {
+            System.out.println(getLocalName() + ": ERROR While Adding Item. Item Not Added");
+        }
+    }
+
+    @Override
+    public String listItems() {
+        return getLocalName() + "\n" + "Holding " + masterInventory.getLength() + " items\nLocated at Node 0\n" + masterInventory.listItems();
     }
 
     @Override
@@ -1297,7 +1324,7 @@ public class MasterRoutingAgent extends Agent implements MyAgentInterface {
             mapPaths = graph.getMapPaths();
 
             System.out.println(getLocalName() + ": Map Generated!");
-            testMapData();
+            //testMapData();
         }
         else {
             System.out.println(getLocalName() + ": Map Already Generated!");
@@ -1307,5 +1334,10 @@ public class MasterRoutingAgent extends Agent implements MyAgentInterface {
     @Override
     public void OverwriteOutput(OutputStream out) {
         System.setOut(new PrintStream(out, true));
+    }
+
+    @Override
+    public AID getAgentName() {
+        return getAID();
     }
 }

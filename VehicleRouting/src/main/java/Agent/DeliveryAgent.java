@@ -8,13 +8,7 @@ import Item.Item;
 import jade.core.AID;
 import jade.core.Agent;
 import jade.core.behaviours.*;
-import jade.domain.mobility.BehaviourLoadingVocabulary;
 import jade.lang.acl.ACLMessage;
-import jade.lang.acl.MessageTemplate;
-import jade.domain.DFService;
-import jade.domain.FIPAException;
-import jade.domain.FIPAAgentManagement.DFAgentDescription;
-import jade.domain.FIPAAgentManagement.ServiceDescription;
 
 import java.io.OutputStream;
 import java.io.PrintStream;
@@ -398,12 +392,18 @@ public class DeliveryAgent extends Agent implements DeliveryAgentInterface {
     //Overwriting DeliveryAgentInterface Methods
     @Override
     public String getData() {
-        String result = getLocalName() + "\n" + inventory.listItems() + "\nCurrently At Node: " + getCurrentLocation();
+        String result = getLocalName() + "\n" + "Currently At Node: " + getCurrentLocation()
+                        + "Carrying " + inventory.getLength() + " items.\n" + inventory.listItems();
         return result;
     }
 
     @Override
     public void OverwriteOutput(OutputStream out) {
         System.setOut(new PrintStream(out, true));
+    }
+
+    @Override
+    public AID getAgentName() {
+        return getAID();
     }
 }
