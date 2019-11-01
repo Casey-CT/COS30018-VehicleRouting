@@ -731,6 +731,7 @@ public class App {
     private void generateDefaultMap() {
         System.out.println("Generating Default Map");
         o2a.GenerateMap(5, 1, 5, 5, 15);
+        nodeCount = 5;
     }
 
     private void saveItems() {
