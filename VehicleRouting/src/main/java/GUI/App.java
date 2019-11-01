@@ -318,7 +318,7 @@ public class App {
                 window.setVisible(true);
 
                 //Set The Path in GraphVis and Tell to Repaint
-                graphVis.setPathToPaint(DAo2aList.get(agentIndex).getPath());
+                graphVis.setPathToDraw(DAo2aList.get(agentIndex).getPath());
                 graphVis.repaint();
             }
         });
@@ -1049,6 +1049,10 @@ public class App {
                         target = agentOutput;
                     }
 
+                    if(text.contains(MRA_TEXT) && text.contains(DA_TEXT)) {
+                        target = appOutput;
+                    }
+
                     if(text.contains(Message.MESSAGE)) {
                         target = snifferOutput;
                     }
@@ -1078,13 +1082,14 @@ public class App {
         private final Color DEPOT_COLOR = Color.RED;
         private final Color NODE_COLOR = Color.GREEN;
         private final Color TEXT_COLOR = Color.BLACK;
+        private final Color WEIGHT_COLOR = Color.DARK_GRAY;
         private final Color EDGE_COLOR = Color.ORANGE;
         private final Color PATH_COLOR = Color.BLUE;
 
         private ArrayList<MapNode> nodes = new ArrayList<>();
         private int[][] map;
 
-        Path pathToDraw = null;
+        Path pathToDraw;
 
         public GraphVis(int[][] mapData) {
             setBorder(BorderFactory.createLineBorder(Color.black));
@@ -1178,8 +1183,8 @@ public class App {
                         int x = (nodes.get(index).getX() + nodes.get(i).getX()) / 2;
                         int y = (nodes.get(index).getY() + nodes.get(i).getY()) / 2;
 
-                        g.setColor(TEXT_COLOR);
-                        g.drawString(String.valueOf(map[index][i]), x, y);
+                        g.setColor(WEIGHT_COLOR);
+                        g.drawString(String.valueOf(map[index][i]), x + TEXT_OFFSET_X, y + TEXT_OFFSET_Y);
                     }
                 }
             }
@@ -1197,7 +1202,7 @@ public class App {
             }
         }
 
-        public void setPathToPaint(Path path) {
+        public void setPathToDraw(Path path) {
             pathToDraw = path;
         }
     }

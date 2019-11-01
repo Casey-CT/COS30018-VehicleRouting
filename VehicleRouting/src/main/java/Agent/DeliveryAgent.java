@@ -255,7 +255,7 @@ public class DeliveryAgent extends Agent implements DeliveryAgentInterface {
     private boolean loadInventory(String json)  {
         Inventory temp = Inventory.deserialize(json);
         if(!temp.isEmpty()){
-            if(!((inventory.getTotalSize() + temp.getTotalSize()) > getCapacity())) {
+            if(!((inventory.getTotalWeight() + temp.getTotalWeight()) > getCapacity())) {
                 if(inventory.addInventory(temp)){
                     System.out.println(getLocalName() + ": Items Were Added.\n" + inventory.listItems());
                     return true;
@@ -395,8 +395,17 @@ public class DeliveryAgent extends Agent implements DeliveryAgentInterface {
     @Override
     //Returns formatted String, containing getLocalName(), getCurrentLocation(), inventory.getLength() and inventory.listItems()
     public String getData() {
-        String result = getLocalName() + "\n" + "Currently At Node: " + getCurrentLocation()
-                        + "\nCarrying " + inventory.getLength() + " items.\n" + inventory.listItems();
+        String result = getLocalName() + "\n" + "Currently At Node: " + getCurrentLocation() + "\n";
+
+        if(path != null) {
+            result += "Currently Delivering. Displaying Path on Map";
+        }
+        else {
+            result += "Not Currently Delivering.";
+        }
+
+        result += "\nCarrying " + inventory.getLength() + " items.\n" + inventory.listItems();
+
         return result;
     }
 
