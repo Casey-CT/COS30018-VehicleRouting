@@ -1081,7 +1081,7 @@ public class App {
         private final Color TEXT_COLOR = Color.BLACK;
         private final Color WEIGHT_COLOR = Color.DARK_GRAY;
         private final Color EDGE_COLOR = Color.MAGENTA;
-        private final Color PATH_COLOR = Color.BLUE;
+        private final Color PATH_COLOR = Color.GREEN;
 
         private ArrayList<MapNode> nodes = new ArrayList<>();
         private int[][] map;

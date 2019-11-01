@@ -689,29 +689,15 @@ public class MasterRoutingAgent extends Agent implements MyAgentInterface {
 
     //Function for solving the CSP problem, and processing the solution
     //This function is complicated, so it is commented throughout
-    //TODO: Add a proper writeup of this function, once the code has been cleaned up properly
-    //TODO: CleanUp/Remove the CSP code
-    //TODO: Add return false if no solution can be found
     //Assigns json representation of paths and inventories to AgentData objects in the agents ArrayList
     //Returns if a solution is found and processed, false otherwise
     public boolean solveConstraintProblem() {
-        //TODO: Remove unnecessary data
         //Data to Give CSP Solver
 
         //Number of Items
         int P = masterInventory.getLength();
 
-        //TODO: Find a better solution that moving ints into an arraylist and then streaming
-        //Node ID of each Items destination
-        //Not in Use at the moment, but could be useful later on.
-        int[] dest;
-
         ArrayList<Integer> temp = new ArrayList<>();
-        for (Item item : masterInventory.getItems()) {
-            temp.add(item.getDestination());
-        }
-        dest = temp.stream().mapToInt(o -> o).toArray();
-        temp.clear();
 
         //Each Items Weight Variable
         int[] weight;
@@ -719,14 +705,6 @@ public class MasterRoutingAgent extends Agent implements MyAgentInterface {
             temp.add(item.getWeight());
         }
         weight = temp.stream().mapToInt(o -> o).toArray();
-        temp.clear();
-
-        //Distance from each Item's Location to Node 0
-        int[] roughDistances;
-        for (Item item : masterInventory.getItems()) {
-            temp.add(mapDist[0][item.getDestination() - 1]);
-        }
-        roughDistances = temp.stream().mapToInt(o -> o).toArray();
         temp.clear();
 
         //Number of Delivery Agents
@@ -740,39 +718,153 @@ public class MasterRoutingAgent extends Agent implements MyAgentInterface {
         da_capacity = temp.stream().mapToInt(o -> o).toArray();
         temp.clear();
 
-        //The average weight per delivery agent is the sum of the total weights of all the packages divided by the number of delivery agents
-        int averageWeightPerDA = sum(weight) / D;
+        //The Model
+        Model model = new Model("Vehicle Routing Solver");
 
+        //Variables
+        //Boolean Variable for Each Combination of Package and DA
+        //If a variable is true, it means that DA is delivery that package
+        //eg; if Packages[i][j] is true, then DA j is delivering Package i
+        BoolVar[][] Packages = new BoolVar[P][D];
+        for(int i = 0; i < P; i++) {
+            for(int j = 0; j < D; j++) {
+                Packages[i][j] = model.boolVar("Package " + i + " - DA " + j + ": ");
+            }
+        }
+
+        //Int Variable for the total weight of packages assigned to a particular DA.
+        //eg; Tot_Weights[i] is the total weight of packages assigned to DA i
+        //The Value of these variables is calculated with a SCALAR constraint
+        IntVar[] Tot_Weights = new IntVar[D];
+        for(int i = 0; i < D; i++) {
+            Tot_Weights[i] = model.intVar("DA " + i + "Capacity", 0, da_capacity[i]);
+        }
+
+        //Constraints
+        //Each Package Must Be Assigned Once
+        for(int i = 0; i < P; i++) {
+            model.sum(Packages[i], "=", 1).post();
+        }
+
+        for(int i = 0; i < D; i++) {
+            BoolVar[] column = new BoolVar[P];
+            for(int j = 0; j < P; j++) {
+                column[j] = Packages[j][i];
+            }
+            //This calculates the total weight of packages assigned to DA i
+            model.scalar(column, weight, "=", Tot_Weights[i]).post();
+
+            //Total Weight of DA i, cannot exceed capacity of DA i
+            model.arithm(Tot_Weights[i], "<=", da_capacity[i]).post();
+        }
+
+        //The Solver
+        Solver solver = model.getSolver();
+
+        Solution solution = solver.findSolution();
+
+        if(solution == null) return false;
+
+        //NOTE:
+        //This Code uses a Choco Solution saved into a variable called solution
+        //When we expand the code so that multiple solutions are compared, save the best one into the solution variable,
+        //so none of this code needs to be refactored
+
+        //For each Delivery Agent
+        //Processed in the order they appear in the agents ArrayList
+        for(int i = 0; i < D; i++) {
+            //Temp inventory, used to store copies of items before serialization
+            Inventory inv = new Inventory();
+            //Adding + 1 to i, so that this output matches the DA's LocalNames
+            System.out.print("Delivery Agent " + (i + 1) + ": ");
+            for(int j = 0; j < P; j++) {
+                System.out.print( " Package " + j + " - ");
+                //If a DA has been assigned a package, add it to the temp inventory
+                if(solution.getIntVal(Packages[j][i]) == 1) {
+                    System.out.print("Y");
+                    inv.addItem(masterInventory.getItems().get(j));
+                }
+                else {
+                    System.out.print("N");
+                }
+            }
+            System.out.println( " Total Weight: " + solution.getIntVal(Tot_Weights[i]) + ".");
+
+            //If no packages have been assigned to a DA, then nothing should be assigned to its AgentData
+            if(!inv.isEmpty()) {
+                //The temp inventory is serialized and added to the AgentData
+                agents.get(i).setJsonInventory(inv.serialize());
+
+                //Inventories are Sorted, and Paths are created from sorted inventories
+                //Debug
+                System.out.print("Testing Pre Order - ");
+                for(Item item: inv.getItems()) {
+                    System.out.print("Item " + item.getId() + ": Dest " + item.getDestination() + " ");
+                }
+                System.out.println(" Total Path Length: " + getPathLength(inv, agents.get(i).getCurrentLocation()));
+
+                //Second temp inventory, which items are added to in sorted order
+                Inventory pathInv = sortInventory(inv, agents.get(i).getCurrentLocation());
+
+                //Debug
+                System.out.print("Testing Post Order - ");
+                for(Item item: pathInv.getItems()) {
+                    System.out.print("Item " + item.getId() + ": Dest " + item.getDestination() + " ");
+                }
+                System.out.println(" Total Path Length: " + getPathLength(pathInv, agents.get(i).getCurrentLocation()));
+
+                //Iterates through the ordered items in pathInv
+                //For each node between the item and previous item
+                //The node ids are added to the loc ArrayList
+                //The distances are added to the dist ArrayList
+                ArrayList<Integer> loc = new ArrayList<>();
+                ArrayList<Integer> dist = new ArrayList<>();
+                int prev_loc = agents.get(i).getCurrentLocation();
+                for(Item item: pathInv.getItems()) {
+                    if(item.getDestination() != prev_loc) {
+                        int[] next_dest = mapPaths[prev_loc][item.getDestination()];
+                        for(int o = 0; o < next_dest.length; o++) {
+                            loc.add(next_dest[o]);
+                            dist.add(mapData[prev_loc][o]);
+                            prev_loc = next_dest[o];
+                        }
+                    }
+                }
+
+                //The loc and dist ArrayLists are converted to arrays
+                //These arrays are used to create a Path object
+                //This path is serialized and added to the AgentData object
+                int[] loc_array = loc.stream().mapToInt(o -> o).toArray();
+                int[] dist_array = dist.stream().mapToInt(o -> o).toArray();
+                Path path = new Path(loc_array, dist_array);
+                agents.get(i).setJsonPath(path.serialize());
+            }
+        }
+
+        /*
         //GENETIC ALGORITHM:
         //List of all the delivery locations
         ArrayList<Location> locations = new ArrayList<>();
 
         //Index of locations
         //Each location has an index that will be used for calculating distance.
-        int index = 1;
-        //Creating a null location for use in the following for loop
-        Location location = null;
 
         //Iterating over the rows
-        for (int x = 0; x < mapDist.length; x++) {
+        for (int i = 0; i < mapDist.length; i++) {
             //Iterating over columns
-            for (int y = 0; y < mapDist.length; y++) {
-                //Create a new location at (x,y) having the given index, demand of 0
-                location = new Location(x, y, index, 0);
-                int demand = 0;
+            Location location = new Location(i, 0);
+            int demand = 0;
 
-                for (Item item : masterInventory.getItems()) {
-                    if (item.getDestination() == index) {
-                        //Add the weight of the item to the demand of that location
+            for (Item item : masterInventory.getItems()) {
+                if (item.getDestination() == i) {
+                    //Add the weight of the item to the demand of that location
                         demand += item.getWeight();
-                    }
                 }
-
-                location.setDemand(demand);
-                System.out.println("Location : " + index + " has a demand of: " + demand);
             }
-            index++;
-            location.setDistancesMatrix(mapDist);
+
+            location.setDemand(demand);
+            System.out.println("Location : " + i + " has a demand of: " + demand);
+            location.setDistancesMatrix(mapDist[i]);
             locations.add(location);
         }
 
@@ -869,27 +961,20 @@ public class MasterRoutingAgent extends Agent implements MyAgentInterface {
         IChromosome bestChromosome = population.getFittestChromosome();
         double totalDistanceOfAllVehicles = 0.0;
 
-        int flag = 0;
-
         ArrayList<List<Integer>> results = new ArrayList<>();
 
         //Store and print the optimum routes for the delivery agents
-        for (int i = 1; i <= D; i++) {
+        for (int i = 0; i < D; i++) {
             List<Integer> route = fitnessFunction.getPositions(i, bestChromosome, fitnessFunction, true);
             double routeDistance = fitnessFunction.computeTotalDistance(i, bestChromosome, fitnessFunction);
             double vehicleWeight = fitnessFunction.computeUsedCapacity(i, bestChromosome, fitnessFunction);
 
             List<Integer> result = new ArrayList<>(Collections.singletonList(1));
-            result.addAll(route.stream().map(aList -> aList + 1).collect(Collectors.toList()));
+            result.addAll(route.stream().collect(Collectors.toList()));
 
-            if (result.contains(new Integer(1))) {
-                flag++;
-            }
-
-            if (flag > 1) {
-                if (result.contains(new Integer(1))) {
-                    result.remove(new Integer(1));
-                }
+            //Node 0 can be skipped as no packages can go there
+            if (result.contains(new Integer(0))) {
+                result.remove(new Integer(0));
             }
 
             results.add(result);
@@ -917,221 +1002,30 @@ public class MasterRoutingAgent extends Agent implements MyAgentInterface {
                 for (Item item : masterInventory.getItems()) {
                     if (item.getDestination() == in) {
                         tempInv.addItem(item);
-                        System.out.println("ITEM : " + item.getId() + " ASSIGNED TO DA " + i);
                     }
                 }
             }
 
-            //Serialize the assembled inventory, and add to the AgentData
-            agents.get(i).setJsonInventory(tempInv.serialize());
+            System.out.println(tempInv.listItems());
 
-            //TODO: This could be made more efficient
-            // I've done it in this way as it lets me re-use some of the choco code
-            //Assemble the Path
-            //Iterates through the ordered items in tempInv
-            //For each node between the item and previous item
-            //The node ids are added to the loc ArrayList
-            //The distances are added to the dist ArrayList
-            ArrayList<Integer> loc = new ArrayList<>();
-            ArrayList<Integer> dist = new ArrayList<>();
-            int prev_loc = agents.get(i).getCurrentLocation();
-            for (Item item : tempInv.getItems()) {
-                if (item.getDestination() != prev_loc) {
-                    int[] next_dest = mapPaths[prev_loc][item.getDestination() - 1];
-                    for (int o = 0; o < next_dest.length; o++) {
-                        loc.add(next_dest[o]);
-                        dist.add(mapData[prev_loc][o]);
-                        prev_loc = next_dest[o];
-                    }
-                }
-            }
+            if(!tempInv.isEmpty()) {
+                //Serialize the assembled inventory, and add to the AgentData
+                agents.get(i).setJsonInventory(tempInv.serialize());
 
-            //The loc and dist ArrayLists are converted to arrays
-            //These arrays are used to create a Path object
-            //This path is serialized and added to the AgentData object
-            int[] loc_array = loc.stream().mapToInt(o -> o).toArray();
-            int[] dist_array = dist.stream().mapToInt(o -> o).toArray();
-            Path path = new Path(loc_array, dist_array);
-            agents.get(i).setJsonPath(path.serialize());
-        }
-
-
-        /*
-        //OLD CHOCO CODE
-
-        //The Model
-        Model model = new Model("Vehicle Routing Solver");
-
-        //Variables
-        //Boolean Variable for Each Combination of Package and DA
-        //If a variable is true, it means that DA is delivery that package
-        //eg; if Packages[i][j] is true, then DA j is delivering Package i
-        BoolVar[][] Packages = new BoolVar[P][D];
-        for(int i = 0; i < P; i++) {
-            for(int j = 0; j < D; j++) {
-                Packages[i][j] = model.boolVar("Package " + i + " - DA " + j + ": ");
-            }
-        }
-
-        //Int Variable for the total weight of packages assigned to a particular DA.
-        //eg; Tot_Weights[i] is the total weight of packages assigned to DA i
-        //The Value of these variables is calculated with a SCALAR constraint
-        IntVar[] Tot_Weights = new IntVar[D];
-        for(int i = 0; i < D; i++) {
-            Tot_Weights[i] = model.intVar("DA " + i + "Capacity", 0, da_capacity[i]);
-        }
-
-        //Int Variable for the total "rough" distance of each path
-        //eg; Tot_RoughPath[i] is the total rough path distance of packages assigned to DA i
-        //The Value of these variables is calculated with a SCALAR constraint
-        IntVar[] Tot_RoughPath = new IntVar[D];
-        for(int i = 0; i < D; i++) {
-            Tot_RoughPath[i] = model.intVar("DA " + i + " RoughPath", 0, IntVar.MAX_INT_BOUND);
-        }
-
-        //Int Variable for the total number of packages assigned to each DA
-        //eg; Tot_Packages[i] is the total number of packages assigned to DA i
-        //The Value of these variables is calculated with a SCALAR constraint, using Packages_Coeff as its coefficients
-        IntVar[] Tot_Packages = new IntVar[D];
-        for(int i = 0; i < D; i++) {
-            Tot_Packages[i] = model.intVar("DA " + i + " Package Total", 0, IntVar.MAX_INT_BOUND);
-        }
-
-        //Single IntVar to be used as a total of all rough paths
-        //This variable will be used as the "objective" in the code
-        //The value will be calculated in a SCALAR constraint, using Path_Total_Coeff as its coefficients
-        IntVar Path_Total = model.intVar("Total Path Length", 0, IntVar.MAX_INT_BOUND);
-
-        //TODO: Find a better method of totalling variables
-        //Scalar Coefficient Arrays
-        //As a SCALAR constraint requires the number of coefficients and variables to be the same,
-        //to use a SCALAR constraint to sum variables (which I'm not sure is even a good idea, but it works),
-        //all the coefficients need to be 1.
-
-        //Array of length P (number of packages)
-        int[] Packages_Coeff = new int [P];
-        for(int i = 0; i < P; i++) {
-            Packages_Coeff[i] = 1;
-        }
-
-        //Array of length D (number of DAs)
-        int[] Path_Total_Coeff = new int[D];
-        for(int i = 0; i < D; i++) {
-            Path_Total_Coeff[i] = 1;
-        }
-
-        //Constraints
-        //Each Package Must Be Assigned Once
-        for(int i = 0; i < P; i++) {
-            model.sum(Packages[i], "=", 1).post();
-        }
-
-        for(int i = 0; i < D; i++) {
-            BoolVar[] column = new BoolVar[P];
-            for(int j = 0; j < P; j++) {
-                column[j] = Packages[j][i];
-            }
-            //This calculates the total weight of packages assigned to DA i
-            model.scalar(column, weight, "=", Tot_Weights[i]).post();
-
-            //Total number of packages assigned to DA i
-            model.scalar(column, Packages_Coeff, "=", Tot_Packages[i]);
-
-            //Total Weight of DA i, cannot exceed capacity of DA i
-            model.arithm(Tot_Weights[i], "<=", da_capacity[i]).post();
-
-            //This calculates the total rough path of packages assigned to DA i
-            model.scalar(column, roughDistances, "=", Tot_RoughPath[i]).post();
-
-            //Naive constraint
-            //Helps better spread the packages among the DAs, works only when DAs have same or very similar capacities
-            //model.arithm(Tot_Weights[i], ">=", averageWeightPerDA).post();
-
-            //This constraint limits the number of packages a DA can be assigned to 3.
-            //If we want to implement limits on the number of packages a DA can hold, we can replace the three with a value pertaining to each DA
-            //model.sum(column, "=", 3).post();
-        }
-
-        //Sum of all Tot_RoughPath variables into the Path_Total variable
-        model.scalar(Tot_RoughPath, Path_Total_Coeff, "=", Path_Total).post();
-
-        //The Solver
-        //TODO: Expand this code so that:
-        // More than one solution is looked at
-        // This behaviour terminates if there is no valid solution
-
-        //TODO: Change this to get Best
-        Solver solver = model.getSolver();
-        //Not working at the moment
-        //Solution solution = solver.findOptimalSolution(Path_Total, false);
-
-        Solution solution = solver.findSolution();
-
-        //TODO: Replace this with the in-built choco function that determines if a solution cannot be found
-        // Ideally, we should check total weight of packages compared to total capacity of DA's, etc before we get to the solver
-        if(solution == null) return false;
-
-        //NOTE:
-        //This Code uses a Choco Solution saved into a variable called solution
-        //When we expand the code so that multiple solutions are compared, save the best one into the solution variable,
-        //so none of this code needs to be refactored
-
-        //For each Delivery Agent
-        //Processed in the order they appear in the agents ArrayList
-        for(int i = 0; i < D; i++) {
-            //Temp inventory, used to store copies of items before serialization
-            Inventory inv = new Inventory();
-            //Adding + 1 to i, so that this output matches the DA's LocalNames
-            System.out.print("Delivery Agent " + (i + 1) + ": ");
-            for(int j = 0; j < P; j++) {
-                System.out.print( " Package " + j + " - ");
-                //If a DA has been assigned a package, add it to the temp inventory
-                if(solution.getIntVal(Packages[j][i]) == 1) {
-                    System.out.print("Y");
-                    inv.addItem(masterInventory.getItems().get(j));
-                }
-                else {
-                    System.out.print("N");
-                }
-            }
-            System.out.println( " Total Weight: " + solution.getIntVal(Tot_Weights[i]) + ".");
-
-            //If no packages have been assigned to a DA, then nothing should be assigned to its AgentData
-            if(!inv.isEmpty()) {
-                //The temp inventory is serialized and added to the AgentData
-                agents.get(i).setJsonInventory(inv.serialize());
-
-                //Inventories are Sorted, and Paths are created from sorted inventories
-                //Debug
-                System.out.print("Testing Pre Order - ");
-                for(Item item: inv.getItems()) {
-                    System.out.print("Item " + item.getId() + ": Dest " + item.getDestination() + " ");
-                }
-                System.out.println(" Total Path Length: " + getPathLength(inv, agents.get(i).getCurrentLocation()));
-
-                //TODO: Decide if Map Nodes start indexing at 0 or 1.
-                // This code assumes Nodes start indexing at 0.
-                //Second temp inventory, which items are added to in sorted order
-                Inventory pathInv = sortInventory(inv, agents.get(i).getCurrentLocation());
-
-                //Debug
-                System.out.print("Testing Post Order - ");
-                for(Item item: pathInv.getItems()) {
-                    System.out.print("Item " + item.getId() + ": Dest " + item.getDestination() + " ");
-                }
-                System.out.println(" Total Path Length: " + getPathLength(pathInv, agents.get(i).getCurrentLocation()));
-
-                //Iterates through the ordered items in pathInv
+                //TODO: This could be made more efficient
+                // I've done it in this way as it lets me re-use some of the choco code
+                //Assemble the Path
+                //Iterates through the ordered items in tempInv
                 //For each node between the item and previous item
                 //The node ids are added to the loc ArrayList
                 //The distances are added to the dist ArrayList
                 ArrayList<Integer> loc = new ArrayList<>();
                 ArrayList<Integer> dist = new ArrayList<>();
                 int prev_loc = agents.get(i).getCurrentLocation();
-                for(Item item: pathInv.getItems()) {
-                    if(item.getDestination() != prev_loc) {
-                        int[] next_dest = mapPaths[prev_loc][item.getDestination()];
-                        for(int o = 0; o < next_dest.length; o++) {
+                for (Item item : tempInv.getItems()) {
+                    if (item.getDestination() != prev_loc) {
+                        int[] next_dest = mapPaths[prev_loc][item.getDestination() - 1];
+                        for (int o = 0; o < next_dest.length; o++) {
                             loc.add(next_dest[o]);
                             dist.add(mapData[prev_loc][o]);
                             prev_loc = next_dest[o];
@@ -1147,7 +1041,8 @@ public class MasterRoutingAgent extends Agent implements MyAgentInterface {
                 Path path = new Path(loc_array, dist_array);
                 agents.get(i).setJsonPath(path.serialize());
             }
-        }*/
+        }
+        */
         return true;
     }
 
