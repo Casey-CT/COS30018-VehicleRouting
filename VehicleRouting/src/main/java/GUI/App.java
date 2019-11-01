@@ -3,6 +3,7 @@ package GUI;
 import Agent.DeliveryAgent;
 import Agent.MasterRoutingAgent;
 import Communication.Message;
+import DeliveryPath.Path;
 import Item.Item;
 import com.google.gson.Gson;
 import com.google.gson.JsonSyntaxException;
@@ -93,6 +94,9 @@ public class App {
     private JTextArea appOutput = new JTextArea(15, 50);
     private JTextArea agentOutput = new JTextArea(15, 50);
     private JTextArea snifferOutput = new JTextArea(15, 50);
+
+    //GraphVis Object, Used to Draw Graph and DA Path
+    private GraphVis graphVis;
 
     //Number of Nodes in the current map
     //Used this to make sure invalid items aren't added to the MRA's masterInventory
@@ -312,6 +316,10 @@ public class App {
                 window.add(scrollPane);
                 window.pack();
                 window.setVisible(true);
+
+                //Set The Path in GraphVis and Tell to Repaint
+                graphVis.setPathToPaint(DAo2aList.get(agentIndex).getPath());
+                graphVis.repaint();
             }
         });
 
@@ -646,22 +654,29 @@ public class App {
         gbc.gridy = 1;
         gbc.gridheight = 2;
         gbc.insets = new Insets(10, 10, 0, 10);
-        appOutputScroll.setPreferredSize(new Dimension(700, 150));
+        appOutputScroll.setPreferredSize(new Dimension(350, 150));
         appFrame.add(appOutputScroll, gbc);
 
         gbc.gridx = 2;
         gbc.gridy = 3;
         gbc.gridheight = 2;
         gbc.insets = new Insets(10, 10, 0, 10);
-        agentOutputScroll.setPreferredSize(new Dimension(700, 150));
+        agentOutputScroll.setPreferredSize(new Dimension(350, 150));
         appFrame.add(agentOutputScroll, gbc);
 
         gbc.gridx = 2;
         gbc.gridy = 5;
         gbc.gridheight = 2;
         gbc.insets = new Insets(10, 10, 10, 10);
-        snifferOutputScroll.setPreferredSize(new Dimension(700, 100));
+        snifferOutputScroll.setPreferredSize(new Dimension(350, 100));
         appFrame.add(snifferOutputScroll, gbc);
+
+        gbc.gridx = 3;
+        gbc.gridy = 1;
+        gbc.gridheight = 6;
+        gbc.insets = new Insets(10, 10, 10, 10);
+        graphVis = new GraphVis(o2a.getMap());
+        appFrame.add(graphVis, gbc);
 
         //Display Window
         appFrame.setSize(0, 0);
@@ -1048,6 +1063,142 @@ public class App {
                     target.append(text);
                 }
             });
+        }
+    }
+
+    //PaintPanel Extension class, used to draw map and DA paths to GUI
+    public class GraphVis extends JPanel {
+
+        private static final int WINDOW_SIZE = 500;
+        private static final int NODE_SIZE = 16;
+        private static final int TEXT_OFFSET_X = -3;
+        private static final int TEXT_OFFSET_Y = 5;
+        private static final int DEPOT_OFFSET = 20;
+
+        private final Color DEPOT_COLOR = Color.RED;
+        private final Color NODE_COLOR = Color.GREEN;
+        private final Color TEXT_COLOR = Color.BLACK;
+        private final Color EDGE_COLOR = Color.ORANGE;
+        private final Color PATH_COLOR = Color.BLUE;
+
+        private ArrayList<MapNode> nodes = new ArrayList<>();
+        private int[][] map;
+
+        Path pathToDraw = null;
+
+        public GraphVis(int[][] mapData) {
+            setBorder(BorderFactory.createLineBorder(Color.black));
+
+            map = mapData;
+
+            for(int i = 0; i < mapData.length; i++) {
+                nodes.add(new MapNode(i, 0, 0));
+            }
+
+            //Set Node Positions
+            Random r = new Random();
+
+            //Set Node Positions
+            nodes.get(0).setX(WINDOW_SIZE / 2);
+            nodes.get(0).setY(WINDOW_SIZE / 2);
+
+            //Set Node Positions
+            for(int i = 1; i < nodes.size(); i++) {
+                MapNode node = nodes.get(i);
+
+                node.setX(r.nextInt(WINDOW_SIZE - (NODE_SIZE * 2)) + NODE_SIZE);
+                if(node.getX() > ((WINDOW_SIZE / 2) - DEPOT_OFFSET) && node.getX() < ((WINDOW_SIZE / 2) + DEPOT_OFFSET)) {
+                    if(r.nextInt(2) != 0) {
+                        node.setX((WINDOW_SIZE / 2) + DEPOT_OFFSET);
+                    }
+                    else {
+                        node.setX((WINDOW_SIZE / 2) - DEPOT_OFFSET);
+                    }
+                }
+
+                node.setY(r.nextInt(WINDOW_SIZE - (NODE_SIZE * 2)) + NODE_SIZE);
+                if(node.getY() > ((WINDOW_SIZE / 2) - DEPOT_OFFSET) && node.getY() < ((WINDOW_SIZE / 2) + DEPOT_OFFSET)) {
+                    if(r.nextInt(2) != 0) {
+                        node.setY((WINDOW_SIZE / 2) + DEPOT_OFFSET);
+                    }
+                    else {
+                        node.setY((WINDOW_SIZE / 2) - DEPOT_OFFSET);
+                    }
+                }
+            }
+        }
+
+        public void paintComponent(Graphics g) {
+            super.paintComponent(g);
+
+            //Draw Edges
+            for(int i = 0; i < nodes.size(); i++) {
+                drawEdge(g, i);
+            }
+
+            //Draw Nodes
+            for(int i = 1; i < nodes.size(); i++) {
+                drawNode(g, i);
+            }
+
+            drawDepot(g);
+
+            if(pathToDraw != null) {
+                drawPath(g);
+            }
+        }
+
+        public Dimension getPreferredSize() {
+            return new Dimension(WINDOW_SIZE, WINDOW_SIZE);
+        }
+
+        public void drawDepot(Graphics g) {
+            g.setColor(DEPOT_COLOR);
+            g.fillOval(nodes.get(0).getX() - (NODE_SIZE / 2), nodes.get(0).getY() - (NODE_SIZE / 2), NODE_SIZE, NODE_SIZE);
+
+            g.setColor(TEXT_COLOR);
+            g.drawString(String.valueOf(nodes.get(0).getIndex()), nodes.get(0).getX() + TEXT_OFFSET_X, nodes.get(0).getY() + TEXT_OFFSET_Y);
+        }
+
+        public void drawNode(Graphics g, int index) {
+            g.setColor(NODE_COLOR);
+            g.fillOval(nodes.get(index).getX() - (NODE_SIZE / 2), nodes.get(index).getY() - (NODE_SIZE / 2), NODE_SIZE, NODE_SIZE);
+
+            g.setColor(TEXT_COLOR);
+            g.drawString(String.valueOf(nodes.get(index).getIndex()), nodes.get(index).getX() + TEXT_OFFSET_X, nodes.get(index).getY() + TEXT_OFFSET_Y);
+        }
+
+        public void drawEdge(Graphics g, int index) {
+            for(int i = 0; i < nodes.size(); i++) {
+                if(i != index) {
+                    if(map[index][i] != 0) {
+                        g.setColor(EDGE_COLOR);
+                        g.drawLine(nodes.get(index).getX(), nodes.get(index).getY(), nodes.get(i).getX(), nodes.get(i).getY());
+
+                        int x = (nodes.get(index).getX() + nodes.get(i).getX()) / 2;
+                        int y = (nodes.get(index).getY() + nodes.get(i).getY()) / 2;
+
+                        g.setColor(TEXT_COLOR);
+                        g.drawString(String.valueOf(map[index][i]), x, y);
+                    }
+                }
+            }
+        }
+
+        public void drawPath(Graphics g) {
+            int[] locations = pathToDraw.getLocations();
+
+            g.setColor(PATH_COLOR);
+
+            g.drawLine(nodes.get(0).getX(), nodes.get(0).getY(), nodes.get(locations[0]).getX(), nodes.get(locations[0]).getY());
+
+            for(int i = 0; i < locations.length - 1; i++) {
+                g.drawLine(nodes.get(locations[i]).getX(), nodes.get(locations[i]).getY(), nodes.get(locations[i + 1]).getX(), nodes.get(locations[i + 1]).getY());
+            }
+        }
+
+        public void setPathToPaint(Path path) {
+            pathToDraw = path;
         }
     }
 }

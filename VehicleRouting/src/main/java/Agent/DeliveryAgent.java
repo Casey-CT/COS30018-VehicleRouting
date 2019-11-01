@@ -396,7 +396,7 @@ public class DeliveryAgent extends Agent implements DeliveryAgentInterface {
     //Returns formatted String, containing getLocalName(), getCurrentLocation(), inventory.getLength() and inventory.listItems()
     public String getData() {
         String result = getLocalName() + "\n" + "Currently At Node: " + getCurrentLocation()
-                        + "Carrying " + inventory.getLength() + " items.\n" + inventory.listItems();
+                        + "\nCarrying " + inventory.getLength() + " items.\n" + inventory.listItems();
         return result;
     }
 
@@ -412,5 +412,10 @@ public class DeliveryAgent extends Agent implements DeliveryAgentInterface {
     @Override
     public AID getAgentName() {
         return getAID();
+    }
+
+    @Override
+    public Path getPath() {
+        return path;
     }
 }
