@@ -1358,7 +1358,7 @@ public class MasterRoutingAgent extends Agent implements MyAgentInterface {
             mapPaths = graph.getMapPaths();
 
             System.out.println(getLocalName() + ": Map Generated!");
-            //testMapData();
+            testMapData();
         }
         else {
             System.out.println(getLocalName() + ": Map Already Generated!");
