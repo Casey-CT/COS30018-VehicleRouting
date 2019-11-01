@@ -126,6 +126,8 @@ public class DeliveryAgent extends Agent implements DeliveryAgentInterface {
                     ACLMessage reply = msg.createReply();
                     reply.setPerformative(ACLMessage.INFORM);
 
+                    //Received New Inventory
+                    //Message Format Message.INVENTORY:json Inventory
                     if(messageContent.contains(Message.INVENTORY)) {
                         try {
                             String[] jsonMessage = messageContent.split(":", 2);
@@ -148,6 +150,8 @@ public class DeliveryAgent extends Agent implements DeliveryAgentInterface {
                         }
                     }
 
+                    //Received New Path
+                    //Message Format Message.INVENTORY:json Path
                     else if(messageContent.contains(Message.PATH)) {
                         try {
                             String[] jsonMessage = messageContent.split(":", 2);
@@ -180,6 +184,7 @@ public class DeliveryAgent extends Agent implements DeliveryAgentInterface {
                 }
 
                 else if(msg.getPerformative() == ACLMessage.REQUEST) {
+                    //Status Message, Requesting currentLocation and capacity
                     if(messageContent.equals(Message.STATUS)) {
                         System.out.println(myAgent.getLocalName() + ": Received Status Request");
 
@@ -192,6 +197,8 @@ public class DeliveryAgent extends Agent implements DeliveryAgentInterface {
 
                         ACLMessage reply = msg.createReply();
                         reply.setPerformative(ACLMessage.INFORM);
+
+                        //Message Format capacity;currentLocation
                         reply.setContent(capacity + "," + currentLocation);
                         send(reply);
                         Message.outputMessage(reply);
@@ -203,8 +210,11 @@ public class DeliveryAgent extends Agent implements DeliveryAgentInterface {
                         start();
                     }
 
+                    //Should receive a message of this type when agent has completed deliveries
+                    //Provides a new path leading back to node 0 (Depot)
                     else if(messageContent.contains(Message.RETURN)) {
                         try {
+                            //Message Format Message.RETURN:json Path
                             String[] jsonMessage = messageContent.split(":", 2);
                             if(loadPath(jsonMessage[1])) {
                                 System.out.println(myAgent.getLocalName() + ": Added Return Path.");
@@ -383,12 +393,17 @@ public class DeliveryAgent extends Agent implements DeliveryAgentInterface {
 
     //Overwriting DeliveryAgentInterface Methods
     @Override
+    //Returns formatted String, containing getLocalName(), getCurrentLocation(), inventory.getLength() and inventory.listItems()
     public String getData() {
         String result = getLocalName() + "\n" + "Currently At Node: " + getCurrentLocation()
                         + "Carrying " + inventory.getLength() + " items.\n" + inventory.listItems();
         return result;
     }
 
+    //Parameters
+    //OutputStream out: The new targetted OutputStream
+    //
+    //Sets this agent's output to the new OutputStream
     @Override
     public void OverwriteOutput(OutputStream out) {
         System.setOut(new PrintStream(out, true));

@@ -39,23 +39,35 @@ public class App {
     private static final int MIN_DIST = 5;
     private static final int MAX_DIST = 15;
 
+    //Item Creation Constants
+    //WEIGHT_SIZE_MODIFIER is used with a Random.nextInt() to generate weights and sizes for randomly generated items
     private static final int WEIGHT_SIZE_MODIFIER = 20;
 
+    //Window Form Constants
+    //CANCEL is returned to cancel out of non-required input windows
     private static final int CANCEL = -1;
 
-    //File Names
+    //File Name Constants
+    //ITEM_DATA_FILE is the text file where String representation of items are stored
+    //MAP_DATA_FILE is the text file where String representation of MasterRoutingAgent.mapData is stored
+    //OPTION_FILE is the text file where Automatic Loading preference is stored
+    //FILE_DELIMITER is the delimiter used by String.split() when loading Items
     private static final String ITEM_DATA_FILE = "items.txt";
     private static final String MAP_DATA_FILE = "map.txt";
     private static final String OPTION_FILE = "options.txt";
-
     private static final String FILE_DELIMITER = ";";
 
+    //Agent Name Constants
+    //MRA_TEXT is the name given to the MasterRoutingAgent, and is used to filter its output into the correct JTextArea
+    //DA_TEXT is part of the name given to DeliveryAgents, and is used to filter its output into the correct JTextArea
     private static final String MRA_TEXT = "MasterRoutingAgent";
     private static final String DA_TEXT = "DeliveryAgent";
 
-    //Redirected Output Stream
+    //Redirected OutputStream Objects
     private TextUpdater textUpdater = new TextUpdater();
 
+    //New OutputStream for redirecting output to JTextArea elements
+    //Uses textUpdater to redirect output to different JTextAreas
     private OutputStream out = new OutputStream() {
 
         @Override
@@ -74,23 +86,35 @@ public class App {
         }
     };
 
+    //Different JTextAreas for Redirected Output
+    //appOutput: GUI Output and MasterRoutingAgent Output
+    //agentOutput: Delivery Agent Output
+    //snifferOutput: ACLMessage Output
     private JTextArea appOutput = new JTextArea(15, 50);
     private JTextArea agentOutput = new JTextArea(15, 50);
     private JTextArea snifferOutput = new JTextArea(15, 50);
 
     //Number of Nodes in the current map
-    //User this to make sure invalid items aren't added to the MRA's masterInventory
+    //Used this to make sure invalid items aren't added to the MRA's masterInventory
     private int nodeCount = 0;
 
+    //Current number of spun up Delivery Agents
+    //Incremented every time a new Delivery Agent is added
     private int agentInt = 0;
 
+    //Total number of packages added to MasterRoutingAgent
+    //Incremented every time a new package is created
+    //Is NOT decremented when packages are removed from MasterRoutingAgent's inventory
     private int itemInt = 0;
 
-    //Placing this here as it is used to spin up additional Delivery Agents
+    //ContainerController, value set while Starting up JADE
+    //Used to spin up additional Delivery Agents
     private ContainerController mainCtrl;
 
+    //Interface, bound to MasterRoutingAgent
     private GUI.MyAgentInterface o2a;
 
+    //Interface ArrayList. Interface bound to each spun up Delivery Agent is added to this list
     private ArrayList<GUI.DeliveryAgentInterface> DAo2aList = new ArrayList<>();
 
     public App() {
@@ -98,11 +122,7 @@ public class App {
         //Redirect Output
         System.setOut(new PrintStream(out));
 
-        //Create Redirected Console Output Text Areas, ScrollPanes and OutputStreams
-        JScrollPane appOutputScroll = new JScrollPane(appOutput);
-        JScrollPane agentOutputScroll = new JScrollPane(agentOutput);
-        JScrollPane snifferOutputScroll = new JScrollPane(snifferOutput);
-
+        //Start Up Jade
         try {
             Runtime rt = Runtime.instance();
             Profile pMain = new ProfileImpl(null, 8888, null);
@@ -112,61 +132,79 @@ public class App {
 
             System.out.println("Attempting to Activate RoutingAgent");
 
+            //Start Master Routing Agent
             AgentCtrl.start();
             Thread.sleep(1000);
+
+            //Bind Interface and OverWrite Output
             o2a = AgentCtrl.getO2AInterface(GUI.MyAgentInterface.class);
             o2a.OverwriteOutput(out);
         } catch (Exception ex) {
             ex.printStackTrace();
         }
 
+        //Welcome Prompt
         JOptionPane.showMessageDialog(null, "Welcome to VehicleRouting");
 
+        //Check whether to Auto load data or not
         if(getPreferences()) {
             loadMap();
             loadItems();
         } else {
+            //Get a Node Count, and randomly generate a Map
             nodeCount = getIntValue("Enter Number of Map Nodes:", "", 5, true);
             o2a.GenerateMap(nodeCount, MIN_DIST, MAX_DIST, ((nodeCount * nodeCount) * MIN_CON_MODIFIER) / 100, ((nodeCount * nodeCount) * MAX_CON_MODIFIER) / 100);
             //System.out.println("DEBUG. Number of Nodes: " + nodeCount + " Minimum Connections: " + ((nodeCount * nodeCount) * MIN_CON_MODIFIER) / 100 + " Maximum Connections: " + ((nodeCount * nodeCount) * MAX_CON_MODIFIER) / 100);
         }
 
+        //Create GUI Buttons
+        //MRA Processing Button
         JButton MasterAgentButton = new JButton();
         String mraButtonLabel = "Start Master\nAgent Processing";
         MasterAgentButton.setText("<html>" + mraButtonLabel.replaceAll("\\n", "<br>") + "</html>");
 
+        //List MRA Inventory Button
         JButton listMasterInventory = new JButton();
         String listMasterInventoryLabel = "List Master\nInventory Items";
         listMasterInventory.setText("<html>" + listMasterInventoryLabel.replaceAll("\\n", "<br>") + "</html>");
 
+        //Create Delivery Agent Button
         JButton DeliveryAgentButton = new JButton();
         String daButtonLabel = "Create\nDelivery Agent";
         DeliveryAgentButton.setText("<html>" + daButtonLabel.replaceAll("\\n", "<br>") + "</html>");
 
+        //Check Delivery Agent Inventory Button
         JButton CheckAgentButton = new JButton();
         String checkButtonLabel = "Check Delivery\nAgent Status";
         CheckAgentButton.setText("<html>" + checkButtonLabel.replaceAll("\\n", "<br>") + "</html>");
 
+        //Add Item Button
         JButton addItem = new JButton();
         String addItemLabel = "Add Item";
         addItem.setText("<html>" + addItemLabel + "</html>");
 
+        //Generate Random Items Button
         JButton generateItems = new JButton();
         String generateItemsLabel = "Generate a Number\nOf Random Items";
         generateItems.setText("<html>" + generateItemsLabel.replaceAll("\\n", "<br>") + "</html>");
 
+        //Load Items From File Button
         JButton loadItemsFile = new JButton();
         String loadItemsFileLabel = "Load Items\nFrom File";
         loadItemsFile.setText("<html>" + loadItemsFileLabel.replaceAll("\\n", "<br>") + "</html>");
 
+        //Options Menu Button
         JButton setOptions = new JButton();
         String setOptionsLabel = "Options";
         setOptions.setText("<html>" + setOptionsLabel + "</html>");
 
+        //Add Action Listeners to Buttons
+        //1 - MRA Processing Button
         MasterAgentButton.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
                 try {
+                    //Tell MasterAgent to Begin Processing
                     System.out.println("Master Agent Beginning Processing...");
                     o2a.StartMasterAgent();
                 }
@@ -177,8 +215,7 @@ public class App {
         });
 
 
-        // *2: DELIVERY AGENT ACTION LISTENER
-
+        //2 - Create Delivery Agent Button
         DeliveryAgentButton.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -187,7 +224,9 @@ public class App {
                         throw new Exception("Jade Container Controller is NULL.");
                     }
 
+                    //Get a Capacity
                     int capacity = getIntValue("Enter Capacity For Delivery Agent:", "",50, false);
+
 
                     if(capacity == CANCEL) {
                         System.out.println("Cancelled Creation of DA");
@@ -195,9 +234,10 @@ public class App {
                     }
                     Object[] args = {capacity};
 
+                    //Increment Agent Int
                     agentInt++;
 
-                    //ASSIGNING DAO2A AND THEN ADDING IT TO THE LIST
+                    //Spin Up Delivery Agent, Bind Interface and Add Interface to ArrayList
                     AgentController DACtrl = mainCtrl.createNewAgent(DA_TEXT + agentInt, DeliveryAgent.class.getName(), args);
                     DACtrl.start();
                     Thread.sleep(500);
@@ -216,16 +256,19 @@ public class App {
             }
         });
 
-        //3 list masterInventory
+        //3 - List MRA Inventory Button
         listMasterInventory.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
+                //Create New Text Area
                 JTextArea textArea = new JTextArea(15, 20);
                 JScrollPane scrollPane = new JScrollPane(textArea);
                 scrollPane.setPreferredSize(new Dimension(300, 300));
 
+                //Add Text to Area
                 textArea.append(o2a.listItems());
 
+                //Create Window and Add Text Area to Window
                 JFrame window = new JFrame("Master Router Inventory");
                 Dimension frameDimension = new Dimension(300, 300);
                 window.setSize(frameDimension);
@@ -235,16 +278,18 @@ public class App {
             }
         });
 
-        //*4: CHECK FOR AGENT DETAILS BUTTON LISTENER
+        //4 - Check Delivery Agent Status Button
         CheckAgentButton.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
 
+                //Make Sure There are DA's to show
                 if(agentInt == 0) {
                     System.out.println("There Are No Active Delivery Agents On The System");
                     return;
                 }
 
+                //Get a valid index for DAo2aList
                 int agentIndex = getDaIndex("Enter Value Between 1 - " + agentInt + ":");
 
                 if(agentIndex == CANCEL) {
@@ -252,12 +297,15 @@ public class App {
                     return;
                 }
 
+                //Create a new Text Area
                 JTextArea textArea = new JTextArea(15, 20);
                 JScrollPane scrollPane = new JScrollPane(textArea);
                 scrollPane.setPreferredSize(new Dimension(300, 300));
 
+                //Add Text
                 textArea.append(DAo2aList.get(agentIndex).getData());
 
+                //Create a New Window
                 JFrame window = new JFrame("Delivery Agent Status");
                 Dimension frameDimension = new Dimension(300, 300);
                 window.setSize(frameDimension);
@@ -267,20 +315,25 @@ public class App {
             }
         });
 
-        //5 AddItem Action Listener
+        //5 - Add Item Button
         addItem.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
+                //Create New Window
                 JFrame addItemWindow = new JFrame("Add Item");
 
+                //Create Window Layout
                 GridBagLayout layout = new GridBagLayout();
                 GridBagConstraints gbc = new GridBagConstraints();
+                addItemWindow.setLayout(layout);
 
+                //Create Window Labels
                 JLabel itemName = new JLabel("Item Name: ");
                 JLabel itemDestination = new JLabel("Destination: (Between 1 - " + (nodeCount - 1) + ") ");
                 JLabel itemWeight = new JLabel("Weight: ");
                 JLabel itemSize = new JLabel("Size: ");
 
+                //Create Window Text Fields
                 JTextField itemNameInput = new JTextField();
                 itemNameInput.setPreferredSize(new Dimension(75, 20));
                 JTextField itemDestinationInput = new JTextField();
@@ -290,15 +343,18 @@ public class App {
                 JTextField itemSizeInput = new JTextField();
                 itemSizeInput.setPreferredSize(new Dimension(75, 20));
 
+                //Create Button and Action Listener
                 JButton addItem = new JButton("Add Item");
                 addItem.addActionListener(new ActionListener() {
                     @Override
                     public void actionPerformed(ActionEvent e) {
+                        //Get Input from Text Fields
                         String nameTemp = itemNameInput.getText();
                         String destTemp = itemDestinationInput.getText();
                         String weightTemp = itemWeightInput.getText();
                         String sizeTemp = itemSizeInput.getText();
 
+                        //Validate Input
                         try{
                             if(nameTemp.isEmpty() || destTemp.isEmpty() || weightTemp.isEmpty() || sizeTemp.isEmpty()) {
                                 throw new Exception();
@@ -312,9 +368,14 @@ public class App {
                                 throw new Exception();
                             }
 
+                            //If data is valid, create new Item
                             Item item = new Item(itemInt, nameTemp, destInt, weightInt, sizeInt);
+
+                            //Add to Inventory and increment itemInt
                             o2a.AddItemToInventory(item);
                             itemInt++;
+
+                            //Close Window
                             addItemWindow.dispose();
                         } catch(Exception ex) {
                             System.out.println("Invalid Data Entered. Item Not Created.");
@@ -322,10 +383,10 @@ public class App {
                     }
                 });
 
+                //Outside padding for window elements
                 Insets inset = new Insets(5, 5, 5, 5);
 
-                addItemWindow.setLayout(layout);
-
+                //Use GridBagConstraints Object to position window elements and add to window
                 gbc.gridx = 0;
                 gbc.gridy = 0;
                 gbc.insets = inset;
@@ -371,15 +432,17 @@ public class App {
                 gbc.insets = inset;
                 addItemWindow.add(addItem, gbc);
 
+                //Display Window
                 addItemWindow.setSize(300, 250);
                 addItemWindow.setVisible(true);
             }
         });
 
-        //5 GenerateItems Action Listener
+        //6 - Generate Random Items Button
         generateItems.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
+                //Get valid int value
                 int count = getIntValue("Enter Number Of Items to Generate", "", 1, false);
 
                 if(count == CANCEL) {
@@ -388,6 +451,7 @@ public class App {
 
                 Random r = new Random();
 
+                //Generate that number of random items, incrementing itemInt each time
                 for(int i = 0; i < count; i++) {
                     Item item = new Item(itemInt, "Item" + itemInt, r.nextInt(nodeCount - 1) + 1, r.nextInt(WEIGHT_SIZE_MODIFIER - 1) + 1, r.nextInt(WEIGHT_SIZE_MODIFIER - 1) + 1);
                     itemInt++;
@@ -397,7 +461,7 @@ public class App {
             }
         });
 
-        //6 Load Items From File Action Listener
+        //7 - Load Items From File Button
         loadItemsFile.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -405,19 +469,24 @@ public class App {
             }
         });
 
-        //7 Set Options Action Listener
+        //8 - Set Options Button
         setOptions.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
+                //Create Window
                 JFrame optionWindow = new JFrame("Set Options");
 
+                //Create Layout Objects
                 GridBagLayout layout = new GridBagLayout();
                 GridBagConstraints gbc = new GridBagConstraints();
+                optionWindow.setLayout(layout);
 
+                //Create Window Labels
                 JLabel optionMap = new JLabel("Save Map to File? Y/N: ");
                 JLabel optionItems = new JLabel("Save MRA Inventory to File? Y/N: ");
                 JLabel optionAutoStart = new JLabel("Load Map and Inventory on StartUp? Y/N: ");
 
+                //Create Window Inputs
                 JTextField optionMapInput = new JTextField();
                 optionMapInput.setPreferredSize(new Dimension(75, 20));
                 JTextField optionItemsInput = new JTextField();
@@ -429,15 +498,18 @@ public class App {
                 optionButton.addActionListener(new ActionListener() {
                     @Override
                     public void actionPerformed(ActionEvent e) {
+                        //Get Inputs
                         String mapInput = optionMapInput.getText();
                         String itemInput = optionItemsInput.getText();
                         String autoStartInput = optionAutoStartInput.getText();
 
+                        //Validate Inputs
                         try{
                             if(mapInput.isEmpty() || itemInput.isEmpty() || autoStartInput.isEmpty()) {
                                 throw new Exception();
                             }
 
+                            //Call functions based on input
                             if(mapInput.equals("Y")) {
                                 saveMap();
                             }
@@ -457,10 +529,10 @@ public class App {
                     }
                 });
 
+                //Outside padding for window objects
                 Insets inset = new Insets(5, 5, 5, 5);
 
-                optionWindow.setLayout(layout);
-
+                //Position Window Elements using GridBagConstraints
                 gbc.gridx = 0;
                 gbc.gridy = 0;
                 gbc.insets = inset;
@@ -496,18 +568,26 @@ public class App {
                 gbc.insets = inset;
                 optionWindow.add(optionButton, gbc);
 
+                //Display Window
                 optionWindow.setSize(400, 250);
                 optionWindow.setVisible(true);
             }
         });
 
+        //Create Redirected Console Output Window Elements
+        JScrollPane appOutputScroll = new JScrollPane(appOutput);
+        JScrollPane agentOutputScroll = new JScrollPane(agentOutput);
+        JScrollPane snifferOutputScroll = new JScrollPane(snifferOutput);
+
+        //Create App Window
         JFrame appFrame = new JFrame("Vehicle Routing App");
 
+        //Create Layout Objects
         GridBagLayout layout = new GridBagLayout();
         GridBagConstraints gbc = new GridBagConstraints();
-
         appFrame.setLayout(layout);
 
+        //Use Layout Objects to position window elements
         JLabel heading = new JLabel("<html><h1><strong><i>Vehicle Routing</i></strong></h1><hr></html>");
         gbc.gridx = 1;
         gbc.gridy = 0;
@@ -583,6 +663,7 @@ public class App {
         snifferOutputScroll.setPreferredSize(new Dimension(700, 100));
         appFrame.add(snifferOutputScroll, gbc);
 
+        //Display Window
         appFrame.setSize(0, 0);
         appFrame.pack();
         appFrame.setVisible(true);
@@ -600,6 +681,7 @@ public class App {
 
     }
 
+    //User Input Methods
     //Creates an input window that requires an input from the user, using the message + additionalMessage and initialValue parameters
     //
     //Input is validated, if valid
@@ -661,7 +743,8 @@ public class App {
         }
     }
 
-    //File Saving Methods
+    //File IO Methods
+    //Converts 2D array mapData to json and saves it to MAP_DATA_FILE
     private void saveMap() {
         Gson gson = new Gson();
         String graph = gson.toJson(o2a.getMap());
@@ -685,6 +768,8 @@ public class App {
         }
     }
 
+    //Deserializes json read from MAP_DATA_FILE
+    //Based on Deserializes map, calls o2a.setMap and sets value of nodeCount
     private void loadMap() {
         BufferedReader in = null;
 
@@ -701,7 +786,6 @@ public class App {
 
                     nodeCount = map.length;
 
-                    System.out.println(map.length);
                 } catch(JsonSyntaxException ex) {
                     System.out.println("Read Map Data Was Invalid. Generating Default Map");
                     generateDefaultMap();
@@ -728,12 +812,19 @@ public class App {
         }
     }
 
+    //Tells MasterRouting Agent to generate a map with small, set values
+    //Sets value of nodeCount
+    //Called when file loading of map causes exception
     private void generateDefaultMap() {
         System.out.println("Generating Default Map");
         o2a.GenerateMap(5, 1, 5, 5, 15);
         nodeCount = 5;
     }
 
+    //Saves Items in MasterRoutingAgent.masterInventory to ITEM_DATA_FILE
+    //Each item is saved on a new line in the format:
+    //Item.getName + FILE_DELIMITER + item.getDestination + FILE_DELIMITER + item.getWeight + FILE_DELIMITER + item.getSize
+    //eg. Item1;2;5;3
     private void saveItems() {
         BufferedWriter out = null;
 
@@ -766,6 +857,13 @@ public class App {
         }
     }
 
+    //Reads ITEM_DATA_FILE line by line
+    //For each line
+    //      -Splits using FILE_DELIMITER
+    //      -Checks String has been split into appropriate substrings
+    //      -Validates substrings
+    //      -Creates an Item and adds to MasterRoutingAgent.masterInventory
+    //      -Increments itemCount
     private void loadItems() {
         BufferedReader in = null;
 
@@ -778,7 +876,7 @@ public class App {
             while((line = in.readLine()) != null) {
                 splitLine = line.split(FILE_DELIMITER);
 
-                System.out.println(line + " " + splitLine.length);
+                //System.out.println(line + " " + splitLine.length);
 
                 if(splitLine.length == 4) {
                     try{
@@ -823,6 +921,8 @@ public class App {
         }
     }
 
+    //Creates OPTION_FILE with default preferences
+    //Called when OPTION_FILE does not exist, or contains invalid data
     private void defaultPreferences() {
         System.out.println("Creating Default Options File");
         BufferedWriter out = null;
@@ -844,6 +944,9 @@ public class App {
         }
     }
 
+    //Writes either 0 or 1 to OPTION_FILE
+    //      -1 if autoLoad is true
+    //      -0 otherwise
     private void setPreferences(boolean autoLoad) {
         BufferedWriter out = null;
 
@@ -869,6 +972,9 @@ public class App {
         }
     }
 
+    //Reads from OPTION_FILE
+    //returns if OPTION_FILE data == 1
+    //calls defaultPreferences and returns false if OPTION_FILE is missing or invalid
     private boolean getPreferences() {
         BufferedReader in = null;
 
@@ -904,10 +1010,16 @@ public class App {
         return result;
     }
 
-    //Test Text Area Methods
     public class TextUpdater {
+        //Previous Targeted JTextArea, to handle the way System.out.println() handles creating a new line
         JTextArea prevTarget = appOutput;
 
+        //Parameters
+        //
+        //String text: The text to be appended to the JTextArea
+        //
+        //Searches text  for certain substrings
+        //Sets targeted JTextArea if text contains certain substrings
         private void updateText(final String text) {
             SwingUtilities.invokeLater(new Runnable() {
                 @Override

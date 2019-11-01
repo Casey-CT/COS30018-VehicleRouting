@@ -23,6 +23,7 @@ public class Message {
     public static final String COMPLETE = "COMPLETE";
     public static final String RETURN = "RETURN";
 
+    //Outputs to System.out, a String represention of supplied ACLMessage
     public static void outputMessage(ACLMessage message) {
         StringBuilder builder = new StringBuilder();
 

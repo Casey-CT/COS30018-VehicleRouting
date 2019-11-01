@@ -8,7 +8,6 @@ import GraphGeneration.GraphGen;
 import GUI.MyAgentInterface;
 import Item.Inventory;
 import Item.Item;
-import com.google.gson.Gson;
 import jade.core.AID;
 import jade.core.Agent;
 import jade.core.behaviours.Behaviour;
@@ -121,61 +120,13 @@ public class MasterRoutingAgent extends Agent implements MyAgentInterface {
 
         registerO2AInterface(MyAgentInterface.class, this);
 
-        //TODO: Remove this Dummy Data
-        /*
-        //Dummy Item Data
-        masterInventory.addItem(new Item(1, "Item1", 2, 12, 1));
-        masterInventory.addItem(new Item(2, "Item2", 3, 50, 1));
-        masterInventory.addItem(new Item(3, "Item3", 2, 12, 1));
-        masterInventory.addItem(new Item(4, "Item4", 4, 11, 1));
-        masterInventory.addItem(new Item(5, "Item5", 1, 2, 1));
-        masterInventory.addItem(new Item(6, "Item6", 2, 11, 1));
-        masterInventory.addItem(new Item(7, "Item7", 1, 16, 1));
-        masterInventory.addItem(new Item(8, "Item8", 2, 12, 1));
-        masterInventory.addItem(new Item(9, "Item9", 4, 20, 1));
-        masterInventory.addItem(new Item(10, "Item10", 2, 10, 1));
-        masterInventory.addItem(new Item(11, "Item11", 3, 15, 1));
-        masterInventory.addItem(new Item(12, "Item12", 2, 17, 1));
-        masterInventory.addItem(new Item(13, "Item13", 4, 9, 1));
-        masterInventory.addItem(new Item(14, "Item14", 1, 1, 1));
-        masterInventory.addItem(new Item(15, "Item15", 2, 7, 1));
-        masterInventory.addItem(new Item(16, "Item16", 1, 3, 1));
-        masterInventory.addItem(new Item(17, "Item17", 2, 16, 1));
-        masterInventory.addItem(new Item(18, "Item18", 4, 5, 1));
-
-        //TODO: Replace this with the GraphGen code
-        //Dummy Map Data
-        //MapData
-        mapData = new int[][]{{0, 1, 0, 0, 3},
-                              {1, 0, 4, 0, 0},
-                              {0, 4, 0, 1, 0},
-                              {0, 0, 1, 0, 2},
-                              {3, 0, 0, 2, 0}};
-
-        //MapDist
-        mapDist = new int[][]{{0, 17, 31, 12, 52},
-                              {17, 0 ,12, 16, 91},
-                              {31, 12, 0, 18, 32},
-                              {12, 16, 18, 0, 26},
-                              {52, 91, 32, 26, 0}};
-
-        //MapPath
-        mapPaths = new int[][][]{{{}, {1}, {1, 2}, {4, 3}, {4}},
-                                 {{0}, {}, {2}, {2, 3}, {0, 4}},
-                                 {{1, 0}, {1}, {}, {3}, {3, 4}},
-                                 {{4, 0}, {2, 1}, {2}, {}, {4}},
-                                 {{0}, {0, 1}, {3, 2}, {3}, {}}};
-        */
-        //TODO: Remove
-        //Commenting out the adding of this behaviour, as it is now added by the GUI
-        //addBehaviour(new processRoutes());
     }
 
-    //TODO: Comment each individual message interpretation
     //Behaviour that constantly loops, listening for messages
     //Works in the same way as the ListenForMessages behaviour in the DeliveryAgent class
     //
     //This behaviour doesn't do anything while the processing boolean flag is set to true
+    //
     private class listenForMessages extends CyclicBehaviour {
         public void action() {
             if(!processing) {
@@ -188,9 +139,12 @@ public class MasterRoutingAgent extends Agent implements MyAgentInterface {
 
                     if(msg.getPerformative() == ACLMessage.INFORM) {
 
+                        //Delivery Agent has arrived at a location
                         if(messageContent.contains(Message.ARRIVE)) {
+                            //Message Content Message.ARRIVE:DeliveryAgent.currentLocation
                             String[] splitContent = messageContent.split(":", 2);
                             boolean set = false;
+                            //Find Matching AgentData and Update with new Location
                             for (AgentData agent: agents) {
                                 if(agent.matchData(msg.getSender())) {
                                     try{
@@ -210,9 +164,13 @@ public class MasterRoutingAgent extends Agent implements MyAgentInterface {
                                 }
                             }
                         }
+
+                        //Delivery Agent has delivered an item
                         else if(messageContent.contains(Message.DELIVERED)) {
+                            //Message Content Message.DELIVERED:Delivered Item ID
                             String[] splitContent = messageContent.split(":", 2);
                             boolean set = false;
+                            //Find Matching AgentData, and remove item from its inventory
                             for (AgentData agent: agents) {
                                 if(agent.matchData(msg.getSender())) {
                                     try{
@@ -231,13 +189,17 @@ public class MasterRoutingAgent extends Agent implements MyAgentInterface {
                                 }
                             }
                         }
+
+                        //Delivery Agent has completed path
                         else if(messageContent.contains(Message.COMPLETE)) {
                             boolean set = false;
                             for (AgentData agent: agents) {
+                                //Find matching AgentData
                                 if(agent.matchData(msg.getSender())) {
                                     try {
                                         set = true;
 
+                                        //Create a New Path object between Delivery Agent's current location and Node 0
                                         if(agent.getCurrentLocation() != 0) {
                                             int[] pathLoc = mapPaths[agent.getCurrentLocation()][0];
                                             int[] pathDist = new int[pathLoc.length];
@@ -247,8 +209,10 @@ public class MasterRoutingAgent extends Agent implements MyAgentInterface {
                                                 pathDist[i] = mapDist[pathLoc[i - 1]][pathLoc[i]];
                                             }
 
+                                            //Serialize Path
                                             String jsonPath = new Path(pathLoc, pathDist).serialize();
 
+                                            //Create Message and send
                                             ACLMessage reply = msg.createReply();
                                             reply.setPerformative(ACLMessage.REQUEST);
                                             reply.setContent(Message.RETURN + ":" + jsonPath);
@@ -268,6 +232,8 @@ public class MasterRoutingAgent extends Agent implements MyAgentInterface {
                                 }
                             }
                         }
+
+                        //Delivery Agent has run into an error
                         else if(msg.getPerformative() == ACLMessage.FAILURE) {
                             try {
                                 throw new Exception(myAgent.getLocalName() + ": " + msg.getSender().getLocalName() + " has run into an error while processing messages");
@@ -1305,6 +1271,7 @@ public class MasterRoutingAgent extends Agent implements MyAgentInterface {
     }
 
     //Overriding of MyAgentInterface Methods
+    //Adds Agent Behaviours
     @Override
     public void StartMasterAgent() {
         if(!processing) {
@@ -1313,6 +1280,10 @@ public class MasterRoutingAgent extends Agent implements MyAgentInterface {
         }
     }
 
+    //Parameters
+    //Item i: Item to be added
+    //
+    //Returns true or false if item is successfully added
     @Override
     public void AddItemToInventory(Item i) {
         if(masterInventory.addItem(i)) {
@@ -1328,6 +1299,7 @@ public class MasterRoutingAgent extends Agent implements MyAgentInterface {
         return masterInventory.getItems();
     }
 
+    //Returns formatted String output of masterInventory.getLength() and masterInventory.listItems()
     @Override
     public String listItems() {
         return getLocalName() + "\n" + "Holding " + masterInventory.getLength() + " items\nLocated at Node 0\n" + masterInventory.listItems();
@@ -1343,9 +1315,18 @@ public class MasterRoutingAgent extends Agent implements MyAgentInterface {
         return mapData;
     }
 
+    //Parameters
+    //int[][] map: New MapData 2D array
+    //
+    //Assigns graph the value of a new GraphGen object, initialized with map Parameter
+    //Calls graph.getExtraData() to find the value of mapDist and mapPaths
+    //Assigns mapData, mapDist and mapPaths using values from graph
+    //
+    //Used when loading a saved map from the GUI
     @Override
     public void setMap(int[][] map) {
         System.out.println(getLocalName() + ": Loading Map");
+
         graph = new GraphGen(map);
         graph.getExtraData();
 
@@ -1353,20 +1334,24 @@ public class MasterRoutingAgent extends Agent implements MyAgentInterface {
         mapDist = graph.getMapDist();
         mapPaths = graph.getMapPaths();
 
-        testMapData();
+        System.out.println(getLocalName() + ": Map Loaded");
+
+        //testMapData();
     }
 
+    //Parameters
+    //int v: The Number of Vertices in the Generated Graph
+    //int dMin: The Minimum Length of a Graph Edge
+    //int dMax: The Maximum Length of a Graph Edge
+    //int eMin: The Minimum Number of Edges in the Generated Graph
+    //int eMax: The Maximum Number of Edges in the Generated Graph
+    //
+    //Assigns graph the value of a new GraphGen Object
+    //Assigns mapData, mapDist and mapPaths using methods from graph
     @Override
     public void GenerateMap(int v, int dMin, int dMax, int eMin, int eMax) {
         if(graph == null) {
             graph = GraphGen.autoGenerate(v, dMin, dMax, eMin, eMax);
-
-            Gson gson = new Gson();
-            String graphTest = gson.toJson(graph);
-
-            graph = null;
-
-            graph = gson.fromJson(graphTest, GraphGen.class);
 
             mapData = graph.getMapData();
             mapDist = graph.getMapDist();
@@ -1380,6 +1365,11 @@ public class MasterRoutingAgent extends Agent implements MyAgentInterface {
         }
     }
 
+    //Parameters
+    //OutputStream out: The new OutputStream to be targeted
+    //
+    //Changes this agents OutputStream to the supplied OutputStream
+    //Used to output to GUI text areas
     @Override
     public void OverwriteOutput(OutputStream out) {
         System.setOut(new PrintStream(out, true));
