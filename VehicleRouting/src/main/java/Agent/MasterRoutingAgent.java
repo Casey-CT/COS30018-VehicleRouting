@@ -3,6 +3,7 @@ package Agent;
 import Agent.AgentInfo.AgentData;
 import Communication.Message;
 import DeliveryPath.Path;
+import GA.FitnessFunction;
 import GA.Location;
 import GraphGeneration.GraphGen;
 import GUI.MyAgentInterface;
@@ -519,6 +520,26 @@ public class MasterRoutingAgent extends Agent implements MyAgentInterface {
                         break;
                     }
 
+                    int demand = 0;
+                    boolean isCapacityExceeded = false;
+                    for(int x = 0; x < mapDist.length; x++) {
+                        for(int y = 0; y < mapDist.length; y++) {
+                            for(Item item:masterInventory.getItems()) {
+                                if(item.getDestination() == x+1) {
+                                    demand += item.getWeight();
+                                }
+                            }
+                            for(AgentData agent:agents) {
+                                if(demand > agent.getCapacity()) {
+                                    System.out.println(myAgent.getLocalName() + ": Total demand at Location " + x+1 + "has exceeded capacity of DA");
+                                    finishBehaviour();
+                                    break;
+                                }
+                            }
+                            demand = 0;
+                        }
+                    }
+
                     System.out.println(getLocalName() + ": Allocating Inventories and Paths to Each Delivery Agent");
 
                     //Solve the constraint problem, and terminate if no solution is found
@@ -802,33 +823,25 @@ public class MasterRoutingAgent extends Agent implements MyAgentInterface {
         int index = 1;
         //Creating a null location for use in the following for loop
         Location location = null;
-
         //Iterating over the rows
+        int demand = 0;
         for(int x = 0; x < mapDist.length; x++) {
             //Iterating over columns
             for(int y = 0; y < mapDist.length; y++) {
                 //Create a new location at (x,y) having the given index, demand of 0
                 location = new Location(x, y, index, 0);
-                int demand = 0;
-                //Check if any item is destined for that location
-                for(int z = 1; z <= masterInventory.getLength(); z++) {
-                    Item item = masterInventory.getItem(z);
+                demand = 0;
+                for(Item item: masterInventory.getItems()) {
                     if(item.getDestination() == index) {
-                        //Add the weight of the item to the demand of that location
                         demand += item.getWeight();
                     }
                 }
-                //Set the overall demand for that location
-                location.setDemand(demand);
-                System.out.println("Location : " + index + " has a demand of: " + demand);
             }
+            location.setDemand(demand);
+            System.out.println("Location : " + index + " has a demand of: " + demand);
             index++;
             location.setDistancesMatrix(mapDist);
             locations.add(location);
-        }
-
-        for(Location l: locations)  {
-            System.out.println("THERE EXISTS A LOCATION WITH INDEX: " + l.getIndex());
         }
 
         //Genetic algorithm values
@@ -840,7 +853,7 @@ public class MasterRoutingAgent extends Agent implements MyAgentInterface {
         //Fitness penalty when the total weight of packages assigned to a truck exceeds its capacity
         int truckOverloadPenalty = 500;
         //Fitness penalty when a truck's capacity is not completely utilized
-        int incompleteTruckPenalty = 2;
+        int incompleteTruckPenalty = 20;
         //Fitness penalty for the distance travelled by the truck
         int distancePenalty = 25;
 
@@ -879,6 +892,7 @@ public class MasterRoutingAgent extends Agent implements MyAgentInterface {
         //Initializing the genes array
         final Gene[] genes = new Gene[2 * numberOfLocations];
 
+        //Initializing all of the genes
         for (int i = 0; i < numberOfLocations; i++) {
             try {
                 genes[i] = new IntegerGene(configuration, 1, D);
@@ -899,41 +913,38 @@ public class MasterRoutingAgent extends Agent implements MyAgentInterface {
         }
 
         System.out.println("Number of generations to evolve: " + numberOfEvolutions);
-
-        for(int i = 1; i <= numberOfEvolutions; i++) {
-            //Output the population details after every 100 evolutions
-            if (i % 100 == 0) {
-                IChromosome bestChromosome = population.getFittestChromosome();
-                System.out.println("Best fitness after " + i + " generations: " + bestChromosome.getFitnessValue());
-                double totalDistanceOfAllVehicles = 0.0;
-                for(int j = 1; j <= D; j++) {
-                    double routeDistance = fitnessFunction.computeTotalDistance(j, bestChromosome, fitnessFunction);
-                    totalDistanceOfAllVehicles += routeDistance;
-                }
-                System.out.println("Total distance of all vehicles: " + totalDistanceOfAllVehicles);
-            }
-            //Population must evolve
-            population.evolve();
-        }
+        //Calling the evolve method on the population
+        population = evolve(population, numberOfEvolutions, fitnessFunction, D);
 
         //Store the overall fittest chromosome
         IChromosome bestChromosome = population.getFittestChromosome();
         double totalDistanceOfAllVehicles = 0.0;
 
         int flag = 0;
-
+        //Stores the individual routes of the vehicles
         ArrayList<List<Integer>> results = new ArrayList<>();
 
         //Store and print the optimum routes for the delivery agents
         for(int i = 1; i <= D; i++) {
+            //Get the route from the fitness function
             List<Integer> route = fitnessFunction.getPositions(i, bestChromosome, fitnessFunction, true);
+            //Get the total distance of that route
             double routeDistance = fitnessFunction.computeTotalDistance(i, bestChromosome, fitnessFunction);
+            //Get the weight of the delivery vehicle (weight of packages assigned to that vehicle)
             double vehicleWeight = fitnessFunction.computeUsedCapacity(i, bestChromosome, fitnessFunction);
 
             List<Integer> result = new ArrayList<>(Collections.singletonList(1));
             result.addAll(route.stream().map(aList -> aList + 1).collect(Collectors.toList()));
 
             if(result.contains(new Integer(1))) {
+                for(int v = 0; v < result.size(); v++) {
+                    if(result.get(v) == 1)
+                    {
+                        if(v != 0) {
+                            result.remove(v);
+                        }
+                    }
+                }
                 flag++;
             }
 
@@ -943,6 +954,7 @@ public class MasterRoutingAgent extends Agent implements MyAgentInterface {
                 }
             }
 
+            //Add all routes to the results list
             results.add(result);
             System.out.println("Delivery vehicle " + i + " : " + result);
             System.out.println("Total distance " + routeDistance);
@@ -955,57 +967,81 @@ public class MasterRoutingAgent extends Agent implements MyAgentInterface {
         //TODO: Make sure to avoid any out of bounds exceptions here
         //As a note, this assumes the order of results are the same as the order of the AgentData objects in agents
         for(int i = 0; i < agents.size(); i++) {
-
             //Assemble the Inventory
             //Creates a temp inventory
             Inventory tempInv = new Inventory();
-
+            List<Integer> idOfItems = new ArrayList<>();
+            List<Integer> route = results.get(i);
             //Loops through each location in results[i]
-            for(Integer in: results.get(i)) {
+            for(int loc: route) {
                 //Loops through every item in the master inventory
                 //If its node id of the item, matches then node id from results,
                 //the item is added to the temp inventory
                 for(Item item: masterInventory.getItems()) {
-                    if(item.getDestination() == in) {
+                    if(item.getDestination() == loc) {
                         tempInv.addItem(item);
-                        System.out.println("ITEM : " + item.getId() + " ASSIGNED TO DA " + i);
+                        idOfItems.add(item.getId());
                     }
                 }
             }
+            System.out.println(tempInv.listItems());
 
             //Serialize the assembled inventory, and add to the AgentData
-            agents.get(i).setJsonInventory(tempInv.serialize());
+            if(!tempInv.isEmpty()) {
+                int totalWeight = 0;
+                for(Item item: tempInv.getItems()) {
+                    totalWeight += item.getWeight();
+                }
 
-            //TODO: This could be made more efficient
-            // I've done it in this way as it lets me re-use some of the choco code
-            //Assemble the Path
-            //Iterates through the ordered items in tempInv
-            //For each node between the item and previous item
-            //The node ids are added to the loc ArrayList
-            //The distances are added to the dist ArrayList
-            ArrayList<Integer> loc = new ArrayList<>();
-            ArrayList<Integer> dist = new ArrayList<>();
-            int prev_loc = agents.get(i).getCurrentLocation();
-            for(Item item: tempInv.getItems()) {
-                if(item.getDestination() != prev_loc) {
-                    int[] next_dest = mapPaths[prev_loc][item.getDestination() - 1];
-                    for(int o = 0; o < next_dest.length; o++) {
-                        loc.add(next_dest[o]);
-                        dist.add(mapData[prev_loc][o]);
-                        prev_loc = next_dest[o];
+                while(totalWeight >= agents.get(i).getCapacity()) {
+                    System.out.println("Overloaded agent capacity, trying again...");
+                    System.out.println("Total weight currently is: " + totalWeight);
+                    tempInv.getItems().remove(tempInv.getItems().size()-1);
+
+                    totalWeight = 0;
+                    for(Item item: tempInv.getItems()) {
+                        totalWeight += item.getWeight();
                     }
                 }
+                agents.get(i).setJsonInventory(tempInv.serialize());
+
+                //TODO: This could be made more efficient
+                // I've done it in this way as it lets me re-use some of the choco code
+                //Assemble the Path
+                //Iterates through the ordered items in tempInv
+                //For each node between the item and previous item
+                //The node ids are added to the loc ArrayList
+                //The distances are added to the dist ArrayList
+                ArrayList<Integer> loc = new ArrayList<>();
+                ArrayList<Integer> dist = new ArrayList<>();
+                int prev_loc = agents.get(i).getCurrentLocation();
+                for(Item item: tempInv.getItems()) {
+                    if(item.getDestination() != prev_loc) {
+                        int[] next_dest = mapPaths[prev_loc][item.getDestination() - 1];
+                        for(int o = 0; o < next_dest.length; o++) {
+                            loc.add(next_dest[o]);
+                            dist.add(mapData[prev_loc][o]);
+                            prev_loc = next_dest[o];
+                        }
+                    }
+                }
+
+                //The loc and dist ArrayLists are converted to arrays
+                //These arrays are used to create a Path object
+                //This path is serialized and added to the AgentData object
+                int[] loc_array = loc.stream().mapToInt(o -> o).toArray();
+                int[] dist_array = dist.stream().mapToInt(o -> o).toArray();
+                Path path = null;
+                try
+                {
+                    path = new Path(loc_array, dist_array);
+                } catch(IllegalArgumentException e) {
+                    path = new Path(new int[]{1}, new int[]{1});
+                }
+
+                agents.get(i).setJsonPath(path.serialize());
             }
-
-            //The loc and dist ArrayLists are converted to arrays
-            //These arrays are used to create a Path object
-            //This path is serialized and added to the AgentData object
-            int[] loc_array = loc.stream().mapToInt(o -> o).toArray();
-            int[] dist_array = dist.stream().mapToInt(o -> o).toArray();
-            Path path = new Path(loc_array, dist_array);
-            agents.get(i).setJsonPath(path.serialize());
         }
-
 
         /*
         //OLD CHOCO CODE
@@ -1392,5 +1428,24 @@ public class MasterRoutingAgent extends Agent implements MyAgentInterface {
     public AID getAgentName() {
         return getAID();
 
+    }
+
+    private Genotype evolve(Genotype population, int numberOfEvolutions, FitnessFunction fitnessFunction, int D) {
+        for(int i = 1; i <= numberOfEvolutions; i++) {
+            //Output the population details after every 100 evolutions
+//            if (i % 100 == 0) {
+//                IChromosome bestChromosome = population.getFittestChromosome();
+//                System.out.println("Best fitness after " + i + " generations: " + bestChromosome.getFitnessValue());
+//                double totalDistanceOfAllVehicles = 0.0;
+//                for(int j = 1; j <= D; j++) {
+//                    double routeDistance = fitnessFunction.computeTotalDistance(j, bestChromosome, fitnessFunction);
+//                    totalDistanceOfAllVehicles += routeDistance;
+//                }
+//                System.out.println("Total distance of all vehicles: " + totalDistanceOfAllVehicles);
+//            }
+            //Population must evolve
+            population.evolve();
+        }
+        return population;
     }
 }

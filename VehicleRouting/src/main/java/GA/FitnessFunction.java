@@ -5,8 +5,8 @@ import org.jgap.IChromosome;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-
-public class FitnessFunction extends org.jgap.FitnessFunction {
+public class
+ FitnessFunction extends org.jgap.FitnessFunction {
 
     private int numberOfVehicles;
     private int numberOfLocations;
@@ -84,16 +84,15 @@ public class FitnessFunction extends org.jgap.FitnessFunction {
         return usedCapacity;
     }
 
-    public  double computeTruckCapacityOptimization(int vehicleNumber, IChromosome iChromosome, FitnessFunction f) {
+    private  double computeTruckCapacityOptimization(int vehicleNumber, IChromosome iChromosome, FitnessFunction f) {
         final double vehicleCapacity = f.getVehicleCapacity();
 
         final double usedCapacity = computeUsedCapacity(vehicleNumber, iChromosome, f);
 
-        if(usedCapacity > vehicleCapacity) {
+        if(usedCapacity >= vehicleCapacity) {
             //return (usedCapacity - vehicleCapacity) * incompleteDeliveryPenalty;
             return 100000;
         }
-
         return (vehicleCapacity - usedCapacity) * incompleteTruckPenalty;
     }
 
@@ -115,7 +114,7 @@ public class FitnessFunction extends org.jgap.FitnessFunction {
     public List<Integer> getPositions(final int vehicleNumber, final IChromosome chromosome, final FitnessFunction f, final boolean order) {
         final List<Integer> route = new ArrayList<>();
         final List<Double> positions = new ArrayList<>();
-        for (int i = 1; i < f.numberOfLocations; ++i) {
+        for (int i = 0; i < f.numberOfLocations; ++i) {
             int chromosomeValue = (Integer) chromosome.getGene(i).getAllele();
             if (chromosomeValue == vehicleNumber) {
                 route.add(i);

@@ -377,7 +377,6 @@ public class App {
                 for(int i = 0; i < count; i++) {
                     Item item = new Item(itemInt, "Item" + itemInt, r.nextInt(nodeCount - 1) + 1, r.nextInt(WEIGHT_SIZE_MODIFIER - 1) + 1, r.nextInt(WEIGHT_SIZE_MODIFIER - 1) + 1);
                     itemInt++;
-
                     o2a.AddItemToInventory(item);
                 }
             }

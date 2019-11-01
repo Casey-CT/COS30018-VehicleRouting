@@ -245,7 +245,7 @@ public class DeliveryAgent extends Agent implements DeliveryAgentInterface {
     private boolean loadInventory(String json)  {
         Inventory temp = Inventory.deserialize(json);
         if(!temp.isEmpty()){
-            if(!((inventory.getTotalSize() + temp.getTotalSize()) > getCapacity())) {
+            if(!((inventory.getTotalWeight() + temp.getTotalWeight()) > getCapacity())) {
                 if(inventory.addInventory(temp)){
                     System.out.println(getLocalName() + ": Items Were Added.\n" + inventory.listItems());
                     return true;
@@ -256,7 +256,13 @@ public class DeliveryAgent extends Agent implements DeliveryAgentInterface {
                 }
             }
             else {
-                System.out.println(getLocalName() + ": Supplied Inventory Exceeded Capacity.");
+                System.out.println(getLocalName() + ": Supplied Inventory Exceeded Capacity. Supplied weight: " + (inventory.getTotalWeight() + temp.getTotalWeight()));
+                for(Item item:temp.getItems()) {
+                    System.out.println("ITEM ASSIGNED IN TEMP" + item.getId());
+                }
+                for(Item item:inventory.getItems()) {
+                    System.out.println("ITEM ASSIGNED IN INVENTORY" + item.getId());
+                }
                 return false;
             }
         }
@@ -298,10 +304,10 @@ public class DeliveryAgent extends Agent implements DeliveryAgentInterface {
     private class onArrival extends OneShotBehaviour {
         public void action() {
             if(!inventory.isEmpty()) {
-                //Placing found matches in a seperate list, so removing items while iterating does not cause issues
+                //Placing found matches in a separate list, so removing items while iterating does not cause issues
                 ArrayList<Integer> item_match = new ArrayList<>();
                 for(Item i: inventory.getItems()) {
-                    //Add in additional conditions here if attempting extentions
+                    //Add in additional conditions here if attempting extensions
                     //Checking time window, etc.
                     if(i.getDestination() == getCurrentLocation()) {
                         item_match.add(i.getId());
