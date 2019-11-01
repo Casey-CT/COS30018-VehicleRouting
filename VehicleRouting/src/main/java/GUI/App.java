@@ -25,9 +25,6 @@ import java.util.ArrayList;
 import java.util.Random;
 import javax.swing.SwingUtilities;
 
-//TODO:
-// EXTENSION: IMAGE OF MAP TO GUI + Lines For DA Path
-// Comment this code
 public class App {
 
     //Map Constants
@@ -1077,13 +1074,13 @@ public class App {
         private static final int NODE_SIZE = 16;
         private static final int TEXT_OFFSET_X = -3;
         private static final int TEXT_OFFSET_Y = 5;
-        private static final int DEPOT_OFFSET = 20;
+        private static final int DEPOT_OFFSET = 70;
 
         private final Color DEPOT_COLOR = Color.RED;
-        private final Color NODE_COLOR = Color.GREEN;
+        private final Color NODE_COLOR = Color.ORANGE;
         private final Color TEXT_COLOR = Color.BLACK;
         private final Color WEIGHT_COLOR = Color.DARK_GRAY;
-        private final Color EDGE_COLOR = Color.ORANGE;
+        private final Color EDGE_COLOR = Color.MAGENTA;
         private final Color PATH_COLOR = Color.BLUE;
 
         private ArrayList<MapNode> nodes = new ArrayList<>();
