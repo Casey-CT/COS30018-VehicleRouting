@@ -22,6 +22,13 @@ public class GraphGen {
         mapPaths = new int[vertices][vertices][];
     }
 
+    public GraphGen(int[][] loadMap) {
+        vertices = loadMap.length;
+        mapData = loadMap;
+        mapDist = new int[loadMap.length][loadMap.length];
+        mapPaths = new int[loadMap.length][loadMap.length][];
+    }
+
     public int[][] getMapData(){
         return mapData;
     }
@@ -69,7 +76,7 @@ public class GraphGen {
         return vertex;
     }
 
-    public static void dijkstra(int[][] adjacencyMatrix, int startVertex, int endVertex) {
+    public void dijkstra(int[][] adjacencyMatrix, int startVertex, int endVertex) {
         int nVertices = adjacencyMatrix[0].length;
         //System.out.println("nVertices: " + nVertices);
         // shortestDistances[i] will hold the
@@ -135,7 +142,15 @@ public class GraphGen {
         printSolution(startVertex, endVertex, shortestDistances, parents);
     }
 
-    private static void printSolution(int startVertex, int endVertex, int[] distances, int[] parents) {
+    public void getExtraData() {
+        for(int i = 0; i < vertices; i++){
+            for(int j = 0; j < vertices; j++){
+                dijkstra(getMapData(), i, j);
+            }
+        }
+    }
+
+    private void printSolution(int startVertex, int endVertex, int[] distances, int[] parents) {
 
         //System.out.print("Vertex\tDistance\tPath");
         mapDist[startVertex][endVertex] = distances[endVertex];
@@ -376,11 +391,7 @@ public class GraphGen {
                 }
             }
 
-            for(int i = 0; i < v; i++){
-                for(int j = 0; j < v; j++){
-                    graph.dijkstra(graph.getMapData(), i, j);
-                }
-            }
+            graph.getExtraData();
 
             //System.out.println("EXPORTABLE 2D ARRAY:");
             /*

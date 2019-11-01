@@ -8,6 +8,7 @@ import GraphGeneration.GraphGen;
 import GUI.MyAgentInterface;
 import Item.Inventory;
 import Item.Item;
+import com.google.gson.Gson;
 import jade.core.AID;
 import jade.core.Agent;
 import jade.core.behaviours.Behaviour;
@@ -797,12 +798,20 @@ public class MasterRoutingAgent extends Agent implements MyAgentInterface {
             for(int y = 0; y < mapDist.length; y++) {
                 location = new Location(x, y, index, 0);
                 int demand = 0;
-                for(int z = 1; z <= masterInventory.getLength(); z++) {
-                    Item item = masterInventory.getItem(z);
+
+                for(Item item: masterInventory.getItems()) {
                     if(item.getDestination() == index) {
                         demand += item.getWeight();
                     }
                 }
+
+                /*for(int z = 1; z <= masterInventory.getLength(); z++) {
+                    Item item = masterInventory.getItem(z);
+                    if(item.getDestination() == index) {
+                        demand += item.getWeight();
+                    }
+                }*/
+
                 location.setDemand(demand);
                 System.out.println("Location : " + index + " has a demand of: " + demand);
             }
@@ -1315,14 +1324,49 @@ public class MasterRoutingAgent extends Agent implements MyAgentInterface {
     }
 
     @Override
+    public ArrayList<Item> getItems() {
+        return masterInventory.getItems();
+    }
+
+    @Override
     public String listItems() {
         return getLocalName() + "\n" + "Holding " + masterInventory.getLength() + " items\nLocated at Node 0\n" + masterInventory.listItems();
+    }
+
+    @Override
+    public AID getAgentName() {
+        return getAID();
+    }
+
+    @Override
+    public int[][] getMap() {
+        return mapData;
+    }
+
+    @Override
+    public void setMap(int[][] map) {
+        System.out.println(getLocalName() + ": Loading Map");
+        graph = new GraphGen(map);
+        graph.getExtraData();
+
+        mapData = graph.getMapData();
+        mapDist = graph.getMapDist();
+        mapPaths = graph.getMapPaths();
+
+        testMapData();
     }
 
     @Override
     public void GenerateMap(int v, int dMin, int dMax, int eMin, int eMax) {
         if(graph == null) {
             graph = GraphGen.autoGenerate(v, dMin, dMax, eMin, eMax);
+
+            Gson gson = new Gson();
+            String graphTest = gson.toJson(graph);
+
+            graph = null;
+
+            graph = gson.fromJson(graphTest, GraphGen.class);
 
             mapData = graph.getMapData();
             mapDist = graph.getMapDist();
@@ -1339,10 +1383,5 @@ public class MasterRoutingAgent extends Agent implements MyAgentInterface {
     @Override
     public void OverwriteOutput(OutputStream out) {
         System.setOut(new PrintStream(out, true));
-    }
-
-    @Override
-    public AID getAgentName() {
-        return getAID();
     }
 }

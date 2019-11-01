@@ -4,6 +4,8 @@ import Agent.DeliveryAgent;
 import Agent.MasterRoutingAgent;
 import Communication.Message;
 import Item.Item;
+import com.google.gson.Gson;
+import com.google.gson.JsonSyntaxException;
 import jade.core.Profile;
 import jade.core.ProfileImpl;
 import jade.core.Runtime;
@@ -17,15 +19,12 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
-import java.io.IOException;
-import java.io.OutputStream;
-import java.io.PrintStream;
+import java.io.*;
 import java.util.ArrayList;
 import java.util.Random;
 import javax.swing.SwingUtilities;
 
 //TODO:
-// SNIFFER AGENT (Console output)
 // EXTENSION: IMAGE OF MAP TO GUI + Lines For DA Path
 // Comment this code
 public class App {
@@ -44,7 +43,13 @@ public class App {
 
     private static final int CANCEL = -1;
 
-    //TODO: Fill in Sniffer Text
+    //File Names
+    private static final String ITEM_DATA_FILE = "items.txt";
+    private static final String MAP_DATA_FILE = "map.txt";
+    private static final String OPTION_FILE = "options.txt";
+
+    private static final String FILE_DELIMITER = ";";
+
     private static final String MRA_TEXT = "MasterRoutingAgent";
     private static final String DA_TEXT = "DeliveryAgent";
 
@@ -98,10 +103,6 @@ public class App {
         JScrollPane agentOutputScroll = new JScrollPane(agentOutput);
         JScrollPane snifferOutputScroll = new JScrollPane(snifferOutput);
 
-        JOptionPane.showMessageDialog(null, "Welcome to VehicleRouting");
-
-        nodeCount = getIntValue("Enter Number of Map Nodes:", "", 5, true);
-
         try {
             Runtime rt = Runtime.instance();
             Profile pMain = new ProfileImpl(null, 8888, null);
@@ -115,14 +116,20 @@ public class App {
             Thread.sleep(1000);
             o2a = AgentCtrl.getO2AInterface(GUI.MyAgentInterface.class);
             o2a.OverwriteOutput(out);
-
-            o2a.GenerateMap(nodeCount, MIN_DIST, MAX_DIST, ((nodeCount * nodeCount) * MIN_CON_MODIFIER) / 100, ((nodeCount * nodeCount) * MAX_CON_MODIFIER) / 100);
-            //System.out.println("DEBUG. Number of Nodes: " + nodeCount + " Minimum Connections: " + ((nodeCount * nodeCount) * MIN_CON_MODIFIER) / 100 + " Maximum Connections: " + ((nodeCount * nodeCount) * MAX_CON_MODIFIER) / 100);
-
         } catch (Exception ex) {
             ex.printStackTrace();
         }
 
+        JOptionPane.showMessageDialog(null, "Welcome to VehicleRouting");
+
+        if(getPreferences()) {
+            loadMap();
+            loadItems();
+        } else {
+            nodeCount = getIntValue("Enter Number of Map Nodes:", "", 5, true);
+            o2a.GenerateMap(nodeCount, MIN_DIST, MAX_DIST, ((nodeCount * nodeCount) * MIN_CON_MODIFIER) / 100, ((nodeCount * nodeCount) * MAX_CON_MODIFIER) / 100);
+            //System.out.println("DEBUG. Number of Nodes: " + nodeCount + " Minimum Connections: " + ((nodeCount * nodeCount) * MIN_CON_MODIFIER) / 100 + " Maximum Connections: " + ((nodeCount * nodeCount) * MAX_CON_MODIFIER) / 100);
+        }
 
         JButton MasterAgentButton = new JButton();
         String mraButtonLabel = "Start Master\nAgent Processing";
@@ -147,6 +154,14 @@ public class App {
         JButton generateItems = new JButton();
         String generateItemsLabel = "Generate a Number\nOf Random Items";
         generateItems.setText("<html>" + generateItemsLabel.replaceAll("\\n", "<br>") + "</html>");
+
+        JButton loadItemsFile = new JButton();
+        String loadItemsFileLabel = "Load Items\nFrom File";
+        loadItemsFile.setText("<html>" + loadItemsFileLabel.replaceAll("\\n", "<br>") + "</html>");
+
+        JButton setOptions = new JButton();
+        String setOptionsLabel = "Options";
+        setOptions.setText("<html>" + setOptionsLabel + "</html>");
 
         MasterAgentButton.addActionListener(new ActionListener() {
             @Override
@@ -303,7 +318,6 @@ public class App {
                             addItemWindow.dispose();
                         } catch(Exception ex) {
                             System.out.println("Invalid Data Entered. Item Not Created.");
-                            return;
                         }
                     }
                 });
@@ -383,6 +397,110 @@ public class App {
             }
         });
 
+        //6 Load Items From File Action Listener
+        loadItemsFile.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                loadItems();
+            }
+        });
+
+        //7 Set Options Action Listener
+        setOptions.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                JFrame optionWindow = new JFrame("Set Options");
+
+                GridBagLayout layout = new GridBagLayout();
+                GridBagConstraints gbc = new GridBagConstraints();
+
+                JLabel optionMap = new JLabel("Save Map to File? Y/N: ");
+                JLabel optionItems = new JLabel("Save MRA Inventory to File? Y/N: ");
+                JLabel optionAutoStart = new JLabel("Load Map and Inventory on StartUp? Y/N: ");
+
+                JTextField optionMapInput = new JTextField();
+                optionMapInput.setPreferredSize(new Dimension(75, 20));
+                JTextField optionItemsInput = new JTextField();
+                optionItemsInput.setPreferredSize(new Dimension(75, 20));
+                JTextField optionAutoStartInput = new JTextField();
+                optionAutoStartInput.setPreferredSize(new Dimension(75, 20));
+
+                JButton optionButton = new JButton("Set Options");
+                optionButton.addActionListener(new ActionListener() {
+                    @Override
+                    public void actionPerformed(ActionEvent e) {
+                        String mapInput = optionMapInput.getText();
+                        String itemInput = optionItemsInput.getText();
+                        String autoStartInput = optionAutoStartInput.getText();
+
+                        try{
+                            if(mapInput.isEmpty() || itemInput.isEmpty() || autoStartInput.isEmpty()) {
+                                throw new Exception();
+                            }
+
+                            if(mapInput.equals("Y")) {
+                                saveMap();
+                            }
+
+                            if(itemInput.equals("Y")) {
+                                saveItems();
+                            }
+
+                            setPreferences(autoStartInput.equals("Y"));
+
+                            System.out.println("Options Set.");
+
+                            optionWindow.dispose();
+                        } catch(Exception ex) {
+                            System.out.println("Invalid Input. Options Not Set.");
+                        }
+                    }
+                });
+
+                Insets inset = new Insets(5, 5, 5, 5);
+
+                optionWindow.setLayout(layout);
+
+                gbc.gridx = 0;
+                gbc.gridy = 0;
+                gbc.insets = inset;
+                optionWindow.add(optionMap, gbc);
+
+                gbc.gridx = 0;
+                gbc.gridy = 1;
+                gbc.insets = inset;
+                optionWindow.add(optionItems, gbc);
+
+                gbc.gridx = 0;
+                gbc.gridy = 2;
+                gbc.insets = inset;
+                optionWindow.add(optionAutoStart, gbc);
+
+                gbc.gridx = 1;
+                gbc.gridy = 0;
+                gbc.insets = inset;
+                optionWindow.add(optionMapInput, gbc);
+
+                gbc.gridx = 1;
+                gbc.gridy = 1;
+                gbc.insets = inset;
+                optionWindow.add(optionItemsInput, gbc);
+
+                gbc.gridx = 1;
+                gbc.gridy = 2;
+                gbc.insets = inset;
+                optionWindow.add(optionAutoStartInput, gbc);
+
+                gbc.gridx = 1;
+                gbc.gridy = 3;
+                gbc.insets = inset;
+                optionWindow.add(optionButton, gbc);
+
+                optionWindow.setSize(400, 250);
+                optionWindow.setVisible(true);
+            }
+        });
+
         JFrame appFrame = new JFrame("Vehicle Routing App");
 
         GridBagLayout layout = new GridBagLayout();
@@ -432,6 +550,18 @@ public class App {
         generateItems.setPreferredSize(new Dimension(150, 45));
         appFrame.add(generateItems, gbc);
 
+        gbc.gridx = 0;
+        gbc.gridy = 4;
+        gbc.insets = new Insets(10, 10, 0, 0);
+        loadItemsFile.setPreferredSize(new Dimension(150, 45));
+        appFrame.add(loadItemsFile, gbc);
+
+        gbc.gridx = 1;
+        gbc.gridy = 4;
+        gbc.insets = new Insets(10, 10, 0, 0);
+        setOptions.setPreferredSize(new Dimension(150, 45));
+        appFrame.add(setOptions, gbc);
+
         gbc.gridx = 2;
         gbc.gridy = 1;
         gbc.gridheight = 2;
@@ -479,7 +609,7 @@ public class App {
     //If the required parameter is true
     //      -Cancelling the dialog returns another call of this method
     //      -Otherwise returns the CANCEL constant
-    public int getIntValue(String message, String additionalMessage, int initialValue, boolean required) {
+    private int getIntValue(String message, String additionalMessage, int initialValue, boolean required) {
         String input = JOptionPane.showInputDialog(null, additionalMessage + message, initialValue);
         try{
             if(!input.isEmpty()) {
@@ -509,7 +639,7 @@ public class App {
     //Works in the same way as getIntValue(), but always returns the CANCEL_DA constant if cancel is pressed
     //Additionally, inputted value must be <= agentInt and >= 1
     //Value returned is inputted value - 1, to work appropriately with the index
-    public int getDaIndex(String message) {
+    private int getDaIndex(String message) {
         String input = JOptionPane.showInputDialog(null, message, null);
         try{
             if(!input.isEmpty()) {
@@ -531,6 +661,248 @@ public class App {
         }
     }
 
+    //File Saving Methods
+    private void saveMap() {
+        Gson gson = new Gson();
+        String graph = gson.toJson(o2a.getMap());
+
+        BufferedWriter out = null;
+
+        try {
+            out = new BufferedWriter(new FileWriter(MAP_DATA_FILE));
+
+            out.write(graph);
+        } catch(IOException ex) {
+            System.out.println("Writing Items to File Caused IOException.");
+        } finally {
+            try {
+                if(out != null) {
+                    out.close();
+                }
+            } catch(IOException ex) {
+                System.out.println("Closing FileWriter Caused Exception.");
+            }
+        }
+    }
+
+    private void loadMap() {
+        BufferedReader in = null;
+
+        try{
+            in = new BufferedReader(new FileReader(MAP_DATA_FILE));
+
+            String line;
+            if((line = in.readLine()) != null) {
+                Gson gson = new Gson();
+                try {
+                    int[][] map = gson.fromJson(line, int[][].class);
+
+                    o2a.setMap(map);
+
+                    nodeCount = map.length;
+
+                    System.out.println(map.length);
+                } catch(JsonSyntaxException ex) {
+                    System.out.println("Read Map Data Was Invalid. Generating Default Map");
+                    generateDefaultMap();
+                }
+            }
+
+        } catch(FileNotFoundException ex) {
+            System.out.println("Map Data File is Missing.");
+            generateDefaultMap();
+        } catch(IOException ex) {
+            System.out.println("Reading Map Data Caused IOException.");
+            generateDefaultMap();
+        } catch(Exception ex) {
+            System.out.println("Reading Map Data Caused Exception.");
+            generateDefaultMap();
+        } finally {
+            try{
+                if(in != null) {
+                    in.close();
+                }
+            } catch (Exception ex) {
+                System.out.println("Closing File Reader Caused Exception.");
+            }
+        }
+    }
+
+    private void generateDefaultMap() {
+        System.out.println("Generating Default Map");
+        o2a.GenerateMap(5, 1, 5, 5, 15);
+    }
+
+    private void saveItems() {
+        BufferedWriter out = null;
+
+        try {
+            out = new BufferedWriter(new FileWriter(ITEM_DATA_FILE));
+            ArrayList<Item> items = o2a.getItems();
+
+            if(items.size() > 0) {
+                for(int i = 0; i < items.size(); i++) {
+                    Item item = items.get(i);
+                    out.write(item.getName() + FILE_DELIMITER + item.getDestination() + FILE_DELIMITER + item.getWeight() + FILE_DELIMITER + item.getSize());
+                    if(i != items.size() - 1) {
+                        out.newLine();
+                    }
+                }
+            } else {
+                System.out.println("No Items to Save");
+            }
+
+        } catch(IOException ex) {
+            System.out.println("Writing Items to File Caused IOException");
+        } finally {
+            try {
+                if(out != null) {
+                    out.close();
+                }
+            } catch(IOException ex) {
+                System.out.println("Closing FileWriter Caused Exception");
+            }
+        }
+    }
+
+    private void loadItems() {
+        BufferedReader in = null;
+
+        try{
+            in = new BufferedReader(new FileReader(ITEM_DATA_FILE));
+
+            String line;
+            String[] splitLine;
+            Random r = new Random();
+            while((line = in.readLine()) != null) {
+                splitLine = line.split(FILE_DELIMITER);
+
+                System.out.println(line + " " + splitLine.length);
+
+                if(splitLine.length == 4) {
+                    try{
+                        int dest = Integer.parseInt(splitLine[1]);
+                        int weight = Integer.parseInt(splitLine[2]);
+                        int size = Integer.parseInt(splitLine[3]);
+
+                        if(dest >= nodeCount) {
+                            System.out.println("Read Item has an invalid destination, based on the current map. Assigning a Random Destination");
+                            dest = r.nextInt(nodeCount - 1) + 1;
+                        }
+
+                        Item item = new Item(itemInt, splitLine[0], dest, weight, size);
+
+                        o2a.AddItemToInventory(item);
+
+                        itemInt++;
+
+                    } catch(NumberFormatException ex) {
+                        System.out.println("Read Item had Invalid Number. Skipping Item");
+                    }
+                }
+                else {
+                    System.out.println("Read Item was not valid. Skipping Item");
+                }
+            }
+
+        } catch(FileNotFoundException ex) {
+            System.out.println("Item Data File is Missing. No Items Loaded");
+        } catch(IOException ex) {
+            System.out.println("Reading Item Data Caused IOException. No Items Loaded");
+        } catch(Exception ex) {
+            System.out.println("Reading Item Data Caused Exception. No Items Loaded");
+        } finally {
+            try{
+                if(in != null) {
+                    in.close();
+                }
+            } catch (Exception ex) {
+                System.out.println("Closing File Reader Caused Exception.");
+            }
+        }
+    }
+
+    private void defaultPreferences() {
+        System.out.println("Creating Default Options File");
+        BufferedWriter out = null;
+
+        try {
+            out = new BufferedWriter(new FileWriter(OPTION_FILE));
+
+            out.write("0");
+        } catch(IOException ex) {
+            System.out.println("Writing Default Preferences to File Caused IOException");
+        } finally {
+            try {
+                if(out != null) {
+                    out.close();
+                }
+            } catch(IOException ex) {
+                System.out.println("Closing FileWriter Caused Exception");
+            }
+        }
+    }
+
+    private void setPreferences(boolean autoLoad) {
+        BufferedWriter out = null;
+
+        try {
+            out = new BufferedWriter(new FileWriter(OPTION_FILE));
+
+            if(autoLoad) {
+                out.write("1");
+            }
+            else {
+                out.write("0");
+            }
+        } catch(IOException ex) {
+            System.out.println("Writing Preferences to File Caused IOException");
+        } finally {
+            try {
+                if(out != null) {
+                    out.close();
+                }
+            } catch(IOException ex) {
+                System.out.println("Closing FileWriter Caused Exception");
+            }
+        }
+    }
+
+    private boolean getPreferences() {
+        BufferedReader in = null;
+
+        boolean result = false;
+
+        try{
+            in = new BufferedReader(new FileReader(OPTION_FILE));
+
+            String line = in.readLine();
+
+            if(line.equals("1")) {
+                result = true;
+            }
+
+        } catch(FileNotFoundException ex) {
+            System.out.println("Item Data File is Missing. No Items Loaded");
+            defaultPreferences();
+        } catch(IOException ex) {
+            System.out.println("Reading Item Data Caused IOException. No Items Loaded");
+            defaultPreferences();
+        } catch(Exception ex) {
+            System.out.println("Reading Item Data Caused Exception. No Items Loaded");
+            defaultPreferences();
+        } finally {
+            try{
+                if(in != null) {
+                    in.close();
+                }
+            } catch (Exception ex) {
+                System.out.println("Closing File Reader Caused Exception.");
+            }
+        }
+        return result;
+    }
+
     //Test Text Area Methods
     public class TextUpdater {
         JTextArea prevTarget = appOutput;
@@ -541,11 +913,16 @@ public class App {
                 public void run() {
                     JTextArea target = appOutput;
 
+                    if(text.contains(MRA_TEXT)) {
+                        target = appOutput;
+                    }
+
+                    if(text.contains(DA_TEXT)) {
+                        target = agentOutput;
+                    }
+
                     if(text.contains(Message.MESSAGE)) {
                         target = snifferOutput;
-                    }
-                    else if(text.contains(DA_TEXT)) {
-                        target = agentOutput;
                     }
 
                     if(text.equals(System.lineSeparator())) {
